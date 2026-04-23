@@ -1,0 +1,267 @@
+##--------------------------------##
+##      Command Entry Points      ##
+## This file defines the actual commands to be executed
+## Also contains event handlers where variables are dynamically updated
+##--------------------------------##
+
+##--------------------------------##
+##       Set Player Language      ##
+##--------------------------------##
+
+#Set Player Language
+on join:
+    if player's language is equal to "zh_tw" or "lzh":
+        set {language::%uuid of player%} to "zh_tw"
+    else if player's language is equal to "ja_jp":
+        set {language::%uuid of player%} to "ja_jp"
+    else:
+        set {language::%uuid of player%} to "default"
+
+##--------------------------------##
+##     Administrative Commands    ##
+##--------------------------------##
+
+##Calibrate Banned Places
+command /caliberateBannedPlaces:
+    trigger:
+        caliberateBannedPlaces()
+
+##Calibrate Hints
+command /caliberateHints:
+    trigger:
+        caliberateHints()
+
+##Initialize Default Location Icons
+command /fixLocationIcons:
+    trigger:
+        fixLocationIcons()
+
+##Initialize Location Popularity
+command /initPopularity:
+    trigger:
+        initPopularity()
+
+##Calibrate Color Options
+command /caliberateColors:
+    trigger:
+        caliberateColors()
+        caliberateHexCodes()
+
+##Check Player Authorization
+command /chkauth <offlineplayer>:
+    trigger:
+        set {_target} to "%argument%" parsed as an offlineplayer
+        send "%{authorizer::%uuid of {_target}%}%"
+
+command /migrateperms:
+    trigger:
+        set {_vipCount} to 0
+        set {_authCount} to 0
+
+        ## --- SCENARIO 1: If your old variables were lists (e.g. {vip::*}) ---
+        loop {vip::*}:
+            make console execute command "lp user %loop-value% permission set server.vip true"
+            add 1 to {_vipCount}
+        delete {vip::*}
+
+        loop {authorized_players::*}:
+            make console execute command "lp user %loop-value% permission set server.authorized true"
+            add 1 to {_authCount}
+        delete {authorized_players::*}
+
+        ## --- SCENARIO 2: If your old variables were per-player (e.g. {vip::%uuid%}) ---
+        # loop all offline players:
+        #     set {_uuid} to uuid of loop-offlineplayer
+        #     if {vip::%{_uuid}%} is set:
+        #         make console execute command "lp user %loop-offlineplayer% permission set server.vip true"
+        #         delete {vip::%{_uuid}%}
+        #         add 1 to {_vipCount}
+        #
+        #     if {auth::%{_uuid}%} is set:
+        #         make console execute command "lp user %loop-offlineplayer% permission set server.authorized true"
+        #         delete {auth::%{_uuid}%}
+        #         add 1 to {_authCount}
+
+        send "&a[Migration] &fSuccessfully converted &e%{_vipCount}% VIPs &fand &e%{_authCount}% Authorized &fplayers to LuckPerms!"
+
+command /migrateLocations:
+    trigger:
+        convertLocationData()
+
+##--------------------------------##
+##        Player Commands         ##
+##--------------------------------##
+
+##Blessing From God
+command /pray:
+    cooldown: 5 seconds
+    cooldown message: %{messages::%{language::%uuid of player%}%::praycd}%
+    trigger:
+        bless(player)
+
+##Curse From Satan
+command /666:
+    trigger:
+        curse(player)
+
+##Set Home
+command /sethome:
+    trigger:
+        setHome(player)
+
+##Go Home
+command /home:
+    trigger:
+        goHome(player)
+
+##Go Back
+command /back:
+    trigger:
+        goBack(player)
+
+##Ask For TP
+command /tpa [<player>]:
+    trigger:
+        askTP(player, arg-1)
+
+##Accept TP
+command /tpk:
+    trigger:
+        acceptTP(player)
+
+##Cancel TP
+command /tpc <player>:
+    trigger:
+        cancelTP(player, arg-1)
+
+##Location Commands Entry Point
+command /location <text> [<text>]:
+    trigger:
+        locationEntryPoint(player, argument 1, argument 2)
+
+##Go To location
+command /goto <text>:
+    trigger:
+        gotoLocation(player, argument)
+
+##Teleport To Wild
+command /wild:
+    cooldown: 60 seconds
+    cooldown message: %{messages::%{language::%uuid of player%}%::wild::cd}%
+    trigger:
+        toWilderness(player)
+
+##VIP Status
+command /vip <player> [<text>]:
+    trigger:
+        if console is the command sender:
+            if argument 2 is "add":
+                make console execute command "lp user %arg-1% permission set server.vip true"
+            if argument 2 is "remove":
+                make console execute command "lp user %arg-1% permission unset server.vip"
+        else:
+            if arg-1 has permission "server.vip":
+                send "%{messages::%{language::%uuid of player%}%::vip::true}%"
+            else:
+                send "%{messages::%{language::%uuid of player%}%::vip::false}%"
+
+##Set Player ID Color
+command /color <text>:
+    trigger:
+        setColor(player, argument)
+
+##Authorize New Player
+command /authorize <offlineplayer>:
+    trigger:
+        authorize_player(player, argument)
+
+##Go To Grave
+command /grave:
+    trigger:
+        gotoGrave(player)
+
+##GUI
+command /commands:
+    trigger:
+        openCommandsMenu(player, {language::%uuid of player%})
+
+on inventory click:
+    if event-inventory = (metadata tag "Commands" of player):
+        cancel event
+        handleCommandsMenuClick(player, index of event-slot)
+        
+    else if event-inventory = (metadata tag "TPMain" of player):
+        cancel event
+        handleTPMainMenuClick(player, index of event-slot)
+
+    else if event-inventory = (metadata tag "TPAsk" of player):
+        cancel event
+        handleTPAskClick(player, event-item)
+
+    else if event-inventory = (metadata tag "TPCancel" of player):
+        cancel event
+        handleTPCancelClick(player, event-item)
+
+    else if event-inventory = (metadata tag "LocationMain" of player):
+        cancel event
+        handleLocationMainMenuClick(player, index of event-slot)
+
+    else if event-inventory = (metadata tag "SavedLocations" of player):
+        cancel event
+        handleSavedLocationsClick(player, event-item)
+
+    else if event-inventory = (metadata tag "Locations%{selectedPage::%uuid of player%}%" of player):
+        cancel event
+        handleLocationPagesClick(player, index of event-slot, event-item)
+
+on anvil gui click:
+    if event-integer is 2:
+        handleLocationAnvilClick(player, event-text)
+
+on death:
+    if victim is a player:
+        set {grave::%uuid of victim%} to victim's location
+    
+        if attacker is a player:
+            give attacker victim's skull
+
+on command:
+    if sender is a player:
+        if player does not have permission "server.authorized":
+            send "%{messages::%{language::%uuid of player%}%::auth::notauthed}%" to player
+            cancel event
+            stop
+        
+        # Player is authorized, check if in banned location
+        set {_loc} to location of player
+        set {_world} to "%world of player%"
+
+        if {_world} is {bannedPlaces::pvp::world}:
+            set {_x} to x-coordinate of {_loc}
+            if {_x} is between {bannedPlaces::pvp::minX} and {bannedPlaces::pvp::maxX}:
+                set {_y} to y-coordinate of {_loc}
+                if {_y} is between {bannedPlaces::pvp::minY} and {bannedPlaces::pvp::maxY}:
+                    set {_z} to z-coordinate of {_loc}
+                    if {_z} is between {bannedPlaces::pvp::minZ} and {bannedPlaces::pvp::maxZ}:
+                        send "%{messages::%{language::%uuid of player%}%::restrictions::pvp}%" to player
+                        cancel event
+
+on join:
+    if player has permission "server.vip":
+        set the player's display name to formatted "<yellow>[VIP]<%{color::%uuid of player%}%>%name of player%"
+        set the player's tab list name to formatted "<yellow>[VIP]<%{color::%uuid of player%}%>%name of player%"
+    else:
+        set the player's display name to formatted "<%{color::%uuid of player%}%>%name of player%"
+        set the player's tab list name to formatted "<%{color::%uuid of player%}%>%name of player%"
+
+    if player does not have permission "server.authorized":
+        set player's gamemode to adventure
+        ##teleport player to location(0.5, 65, 0.5, world "lobby")
+
+on quit:
+    # Clean up temporary per-player variables
+    clear {status::%uuid of player%}
+    clear {selectedPage::%uuid of player%}
+    clear {pending::%uuid of player%}
+    clear {locationPages::%uuid of player%::*}
+    clear {buffer::%uuid of player%::*}

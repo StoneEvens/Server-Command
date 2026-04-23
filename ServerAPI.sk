@@ -1,0 +1,647 @@
+##--------------------------------##
+##      Server API Functions      ##
+## These Are The Main Functions That Power The Server's Core Features
+##--------------------------------##
+
+##--------------------------------##
+##    Administrative Functions    ##
+##--------------------------------##
+
+##Convert Old Location Data Structure to New Structure
+function convertLocationData():
+    set {_names::*} to indices of {locIcons::*}
+    loop {_names::*}:
+        set {_name} to loop-value
+        if {location::%{_name}%} is set:
+            set {_coords} to {location::%{_name}%}
+            set {_icon} to {locIcons::%{_name}%}
+            set {_freq} to {locFreq::%{_name}%}
+            if {_freq} is not set:
+                set {_freq} to 0
+            
+            delete {location::%{_name}%}
+            
+            set {location::%{_name}%::coords} to {_coords}
+            set {location::%{_name}%::icon} to {_icon}
+            set {location::%{_name}%::freq} to {_freq}
+    
+    delete {locIcons::*}
+    delete {locFreq::*}
+
+##Sort Locations By Frequency From Scratch
+function sortLocations():
+    clear {_allLocs::*}
+    loop {sortedLocations::*}:
+        add loop-value to {_allLocs::*}
+
+    set {_totalLocs} to size of {_allLocs::*}
+
+    loop {_totalLocs} times:
+        set {_maxFreq} to -1
+        set {_maxName} to ""
+        loop {_allLocs::*}:
+            if {_visited::%loop-value-2%} is not set:
+                set {_curFreq} to 0
+                if {location::%loop-value-2%::freq} is set:
+                    set {_curFreq} to {location::%loop-value-2%::freq}
+                if {_curFreq} > {_maxFreq}:
+                    set {_maxFreq} to {_curFreq}
+                    set {_maxName} to loop-value-2
+        set {_visited::%{_maxName}%} to true
+        add {_maxName} to {_sorted::*}
+
+    set {sortedLocations::*} to {_sorted::*}
+
+##Initialize Location Icons
+function fixLocationIcons():
+    loop {sortedLocations::*}:
+        set {_locName} to loop-value
+        if {location::%{_locName}%::icon} is grass block:
+            set {_world} to world of {location::%{_locName}%::coords}
+            if "%{_world}%" contains "nether":
+                set {location::%{_locName}%::icon} to netherrack
+            else if "%{_world}%" contains "end":
+                set {location::%{_locName}%::icon} to end stone
+
+##Initialize Location Popularities
+function initPopularity():
+    loop {sortedLocations::*}:
+        set {_locName} to loop-value
+        if {location::%{_locName}%::freq} is not set:
+            set {location::%{_locName}%::freq} to 0
+    sortLocations()
+
+##Initialize Command Banning Places
+function addBannedPlace(name: text, world: text, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number):
+    set {bannedPlaces::%{_name}%::world} to {_world}
+    set {bannedPlaces::%{_name}%::minX} to min({_x1}, {_x2})
+    set {bannedPlaces::%{_name}%::maxX} to max({_x1}, {_x2})
+    set {bannedPlaces::%{_name}%::minY} to min({_y1}, {_y2})
+    set {bannedPlaces::%{_name}%::maxY} to max({_y1}, {_y2})
+    set {bannedPlaces::%{_name}%::minZ} to min({_z1}, {_z2})
+    set {bannedPlaces::%{_name}%::maxZ} to max({_z1}, {_z2})
+
+##--------------------------------##
+##     Server Core Functions      ##
+##--------------------------------##
+
+##Bless Player
+function bless(p: player):
+    set {_p}'s health to 20
+    set {_p}'s food level to 10
+    set {_p}'s saturation to 20
+    send {messages::%{language::%uuid of {_p}%}%::pray} to {_p}
+
+##Curse From Satan
+function curse(p: player):
+    set {_p}'s health to 0
+    broadcast "&4Hahaha!"
+
+##Set Home
+function setHome(p: player):
+    set {_uuid} to uuid of {_p}
+    set {_loc} to {_p}'s location
+    set {home::%{_uuid}%} to {_loc}
+    send "%{messages::%{language::%{_uuid}%}%::sethome}%&f%{_loc}%" to {_p}
+
+##----------The Teleportation Section----------##
+##This section covers all functions related to teleportation (excluding locations, which have their own section)
+
+##To Wilderness
+##Dependent on addBuffer()
+function toWilderness(p: player):
+    if world of {_p} is "world":
+        set {_uuid} to uuid of {_p}
+        set {_lang} to {language::%{_uuid}%}
+        send {messages::%{_lang}%::wild::executed} to {_p}
+        send {messages::%{_lang}%::wild::delay} to {_p}
+
+        set {_xVal} to random number between -100000 and 100000
+        set {_zVal} to random number between -100000 and 100000
+        
+        set {_baseLoc} to location at {_xVal}, 0, {_zVal} in world "world"
+        set {_topBlock} to highest block at {_baseLoc}
+        
+        if {_topBlock} is not lava or water or air:
+            set {_safeTpLoc} to location of block above {_topBlock}
+
+        if {_safeTpLoc} is set:
+            wait 3 seconds
+            addBuffer({_p})
+            teleport {_p} to {_safeTpLoc}
+            send {messages::%{_lang}%::wild::safe} to {_p}
+        else:
+            send {messages::%{_lang}%::wild::unsafe} to {_p}
+            wait 1 second
+            toWilderness({_p})
+    else:
+        send {messages::%{_lang}%::wild::error} to {_p}
+
+##Add Buffer location
+##Helper function for all teleportation functions
+function addBuffer(p: player):
+    set {_uuid} to uuid of {_p}
+    add {_p}'s location to {buffer::%{_uuid}%::*}
+
+    if size of {buffer::%{_uuid}%::*} > 3:
+        remove {buffer::%{_uuid}%::1} from {buffer::%{_uuid}%::*}
+        loop {buffer::%{_uuid}%::*}:
+            if loop-value is set:
+                add loop-value to {_tempList::*}
+        set {buffer::%{_uuid}%::*} to {_tempList::*}
+
+##Go Home
+##Dependent on addBuffer()
+function goHome(p: player):
+    set {_uuid} to uuid of {_p}
+    set {_lang} to {language::%{_uuid}%}
+    if {home::%{_uuid}%} is set:
+        addBuffer({_p})
+        teleport {_p} to {home::%{_uuid}%}
+        send {messages::%{_lang}%::home::executed} to {_p}
+    else:
+        send {messages::%{_lang}%::home::fail} to {_p}
+
+##Go Back
+##Dependent on addBuffer()
+function goBack(p: player):
+    set {_uuid} to uuid of {_p}
+    set {_lang} to {language::%{_uuid}%}
+    set {_lastIndex} to size of {buffer::%{_uuid}%::*}
+    if {_lastIndex} > 0:
+        teleport {_p} to {buffer::%{_uuid}%::%{_lastIndex}%}
+        remove {buffer::%{_uuid}%::%{_lastIndex}%} from {buffer::%{_uuid}%::*}
+        loop {buffer::%{_uuid}%::*}:
+            if loop-value is set:
+                add loop-value to {_tempList::*}
+        set {buffer::%{_uuid}%::*} to {_tempList::*}
+        send {messages::%{_lang}%::back::executed} to {_p}
+    else:
+        send {messages::%{_lang}%::back::fail} to {_p}
+
+##Ask For TP
+function askTP(p: player, target: player):
+    set {_pLang} to {language::%uuid of {_p}%}
+    if {_target} is set:
+        set {_targetUuid} to uuid of {_target}
+        set {_tLang} to {language::%{_targetUuid}%}
+        if {pending::%{_targetUuid}%} is not set:
+            set {pending::%{_targetUuid}%} to {_p}
+            send "%{messages::%{_pLang}%::tpa::sendrequest}%%{_target}%" to {_p}
+            send "&e%{_p}%%{messages::%{_tLang}%::tpa::receiverequest}%" to {_target}
+            wait 1 minute
+            if {pending::%{_targetUuid}%} is {_p}:
+                send {messages::%{_pLang}%::tpa::expired} to {_p}
+                clear {pending::%{_targetUuid}%}
+        else:
+            send {messages::%{_pLang}%::tpa::pending} to {_p}
+    else:
+        send {messages::%{_pLang}%::tpa::notarget} to {_p}
+
+##Accept TP
+##Dependent on addBuffer()
+function acceptTP(p: player):
+    set {_uuid} to uuid of {_p}
+    if {pending::%{_uuid}%} is set:
+        set {_requester} to {pending::%{_uuid}%}
+        send {messages::%{language::%{_uuid}%}%::tpk::executed} to {_p}
+        send {messages::%{language::%uuid of {_requester}%}%::tpk::executed} to {_requester}
+        wait 3 seconds
+        addBuffer({_requester})
+        teleport {_requester} to {_p}
+        clear {pending::%{_uuid}%}
+    else:
+        send {messages::%{language::%{_uuid}%}%::tpk::fail} to {_p}
+
+##Cancel TP
+function cancelTP(p: player, target: player):
+    set {_lang} to {language::%uuid of {_p}%}
+    if {_target} is set:
+        set {_targetUuid} to uuid of {_target}
+        if {pending::%{_targetUuid}%} is set:
+            clear {pending::%{_targetUuid}%}
+            send "%{messages::%{_lang}%::tpc::executed}%%{_target}%" to {_p}
+        else:
+            send {messages::%{_lang}%::tpc::fail} to {_p}
+    else:
+        send {messages::%{_lang}%::tpc::notarget} to {_p}
+
+##----------End of Teleportation Section----------##
+
+##----------The Location Section----------##
+##This section covers all functions related locations
+
+##Location Command Entry Point
+##The function handling all subcommands of the location command
+##Dependent on addLocation(), removeLocation() and setIcon()
+function locationEntryPoint(p: player, action: text, target: text):
+    if {_action} is "add":
+        addLocation({_p}, {_target})
+    else if {_action} is "remove":
+        removeLocation({_p}, {_target})
+    else if {_action} is "setIcon":
+        setIcon({_p}, {_target})
+    else:
+        set {_lang} to {language::%uuid of {_p}%}
+        send {messages::%{_lang}%::location::unknown} to {_p}
+
+##Update Location In List By Popularity
+##Helper function for gotoLocation() to update popularity and location index
+function promoteLocation(name: text):
+    add 1 to {location::%{_name}%::freq}
+    set {_pos} to -1
+    loop {sortedLocations::*}:
+        if loop-value is {_name}:
+            set {_pos} to loop-index parsed as number
+            exit loop
+    
+    if {_pos} > 0:
+        while {_pos} > 1:
+            set {_prevPos} to {_pos} - 1
+            set {_prevName} to {sortedLocations::%{_prevPos}%}
+            set {_prevFreq} to 0
+            if {location::%{_prevName}%::freq} is set:
+                set {_prevFreq} to {location::%{_prevName}%::freq}
+            if {location::%{_name}%::freq} > {_prevFreq}:
+                set {sortedLocations::%{_pos}%} to {_prevName}
+                set {sortedLocations::%{_prevPos}%} to {_name}
+                set {_pos} to {_prevPos}
+            else:
+                exit loop
+
+##Add Location
+##Helper function for locationEntryPoint() to add a location to the server
+function addLocation(p: player, newLoc: text):
+    set {_lang} to {language::%uuid of {_p}%}
+    if {location::%{_newLoc}%::coords} is set:
+        send {messages::%{_lang}%::location::add::fail} to {_p}
+    else:
+        set {location::%{_newLoc}%::coords} to {_p}'s location
+        if world of {_p} is "world_nether":
+            set {location::%{_newLoc}%::icon} to netherrack
+        else if world of {_p} is "world_the_end":
+            set {location::%{_newLoc}%::icon} to end stone
+        else:
+            set {location::%{_newLoc}%::icon} to grass block
+        set {location::%{_newLoc}%::freq} to 0
+        add {_newLoc} to {sortedLocations::*}
+        send "%{messages::%{_lang}%::location::add::executed}%%{_newLoc}%" to {_p}
+
+##Remove Location
+##Helper function for locationEntryPoint() to remove a location from the server
+function removeLocation(p: player, target: text):
+    set {_lang} to {language::%uuid of {_p}%}
+    if {location::%{_target}%::coords} is set:
+        delete {location::%{_target}%::*}
+        remove {_target} from {sortedLocations::*}
+        loop all players:
+            remove {_target} from {savedLocations::%uuid of loop-player%::*}
+        send {messages::%{_lang}%::location::remove::executed} to {_p}
+    else:
+        send {messages::%{_lang}%::location::remove::fail} to {_p}
+
+##Set Location Icon
+##Helper function for locationEntryPoint() to set a location's icon
+function setIcon(p: player, target: text):
+    set {_lang} to {language::%uuid of {_p}%}
+    if {location::%{_target}%::coords} is set:
+        if {_p}'s held item isn't air:
+            set {location::%{_target}%::icon} to {_p}'s held item
+            send {messages::%{_lang}%::location::setIcon::executed} to {_p}
+        else:
+            send {messages::%{_lang}%::location::setIcon::isAir} to {_p}
+    else:
+        send {messages::%{_lang}%::location::setIcon::fail} to {_p}
+
+##Go To Location
+##Dependent on addBuffer() and promoteLocation() to update popularity and location index
+function gotoLocation(p: player, target: text):
+    set {_lang} to {language::%uuid of {_p}%}
+    if {location::%{_target}%::coords} is set:
+        addBuffer({_p})
+        teleport {_p} to {location::%{_target}%::coords}
+        promoteLocation({_target})
+        send "%{messages::%{_lang}%::goto::executed}%%{_target}%" to {_p}
+    else:
+        send {messages::%{_lang}%::goto::fail} to {_p}
+
+##----------End of Location Section----------##
+
+##Go To Grave
+##Dependent on addBuffer()
+function gotoGrave(p: player):
+    set {_uuid} to uuid of {_p}
+    set {_lang} to {language::%{_uuid}%}
+    if {grave::%{_uuid}%} is set:
+        addBuffer({_p})
+        teleport {_p} to {grave::%{_uuid}%}
+        clear {grave::%{_uuid}%}
+        send {messages::%{_lang}%::grave::executed} to {_p}
+    else:
+        send {messages::%{_lang}%::grave::fail} to {_p}
+
+##Set Player ID Color
+function setColor(p: player, color: text):
+    set {_uuid} to uuid of {_p}
+    set {_lang} to {language::%{_uuid}%}
+    if {colors::*} contains {_color}:
+        set {color::%{_uuid}%} to {_color}
+        send {messages::%{_lang}%::color::executed} to {_p}
+        stop
+    set {_length} to length of {_color}
+    if {_length} is not 7:
+        send {messages::%{_lang}%::color::nosixvalue} to {_p}
+    else if first character of {_color} is not "#":
+        send {messages::%{_lang}%::color::nohashtag} to {_p}
+    else:
+        set {_valid} to true
+        loop numbers from 2 to 7:
+            if {hexcode::*} does not contain character at index loop-value of {_color}:
+                set {_valid} to false
+                exit loop
+        if {_valid} is true:
+            set {color::%{_uuid}%} to {_color}
+            send {messages::%{_lang}%::color::executed} to {_p}
+            stop
+    send {messages::%{_lang}%::color::fail} to {_p}
+    loop {colors::*}:
+        send formatted "<%loop-value%>%loop-value%" to {_p}
+
+##Authorize New Player
+function authorize_player(p: player, target: offlineplayer):
+    set {_targetUuid} to uuid of {_target}
+    set {_pLang} to {language::%uuid of {_p}%}
+    if {_target} does not have permission "server.authorized":
+        make console execute command "lp user %{_target}% permission set server.authorized true"
+        set {authorizer::%{_targetUuid}%} to {_p}
+        send {messages::%{_pLang}%::auth::executed} to {_p}
+        if {_target} is online:
+            set {_target}'s gamemode to survival
+            ##teleport {_target} to location(0.5, 65, 0.5, world "world")
+            send {messages::%{language::%{_targetUuid}%}%::auth::authed} to {_target}
+    else:
+        send {messages::%{_pLang}%::auth::alreadyauthed} to {_p}
+
+##--------------------------------##
+##          GUI Functions         ##
+##--------------------------------##
+
+##Main Menu Generator
+function openCommandsMenu(p: player, lang: text):
+    set metadata tag "Commands" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::commands::title}%"
+    set slot 0 of metadata tag "Commands" of {_p} to grass block named "%{labels::%{_lang}%::commands::wild}%" with lore "%{lores::%{_lang}%::commands::wild}%"
+    set slot 4 of metadata tag "Commands" of {_p} to red bed named "%{labels::%{_lang}%::commands::home}%" with lore "%{lores::%{_lang}%::commands::home}%"
+    set slot 8 of metadata tag "Commands" of {_p} to lodestone named "%{labels::%{_lang}%::commands::sethome}%" with lore "%{lores::%{_lang}%::commands::sethome}%"
+    set slot 9 of metadata tag "Commands" of {_p} to ender pearl named "%{labels::%{_lang}%::commands::tp}%" with lore "%{lores::%{_lang}%::commands::tp}%"
+    set slot 13 of metadata tag "Commands" of {_p} to respawn anchor named "%{labels::%{_lang}%::commands::back}%" with lore "%{lores::%{_lang}%::commands::back}%"
+    set slot 17 of metadata tag "Commands" of {_p} to crafting table named "%{labels::%{_lang}%::commands::location}%" with lore "%{lores::%{_lang}%::commands::location}%"
+    set slot 18 of metadata tag "Commands" of {_p} to wither skeleton skull named "666" with lore "%{lores::%{_lang}%::commands::666}%"
+    set slot 22 of metadata tag "Commands" of {_p} to skeleton skull named "%{labels::%{_lang}%::commands::grave}%" with lore "%{lores::%{_lang}%::commands::grave}%"
+    set slot 26 of metadata tag "Commands" of {_p} to totem of undying named "%{labels::%{_lang}%::commands::pray}%" with lore "%{lores::%{_lang}%::commands::pray}%"
+    open (metadata tag "Commands" of {_p}) to {_p}
+
+##TP Menu Generator
+function openTPMenu(p: player, lang: text):
+    set metadata tag "TPMain" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::tp::title}%"
+    set slot 9 of metadata tag "TPMain" of {_p} to yellow concrete named "%{labels::%{_lang}%::tp::tpa}%"
+    set slot 13 of metadata tag "TPMain" of {_p} to green concrete named "%{labels::%{_lang}%::tp::tpk}%"
+    set slot 17 of metadata tag "TPMain" of {_p} to red concrete named "%{labels::%{_lang}%::tp::tpc}%"
+    open (metadata tag "TPMain" of {_p}) to {_p}
+
+##Location Menu Generator
+function openLocationMenu(p: player, lang: text):
+    set metadata tag "LocationMain" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::location::title}%"
+    set slot 4 of metadata tag "LocationMain" of {_p} to command block named "%{labels::%{_lang}%::location::setIcon}%"
+    set slot 9 of metadata tag "LocationMain" of {_p} to grass block named "%{labels::%{_lang}%::location::add}%"
+    set slot 13 of metadata tag "LocationMain" of {_p} to paper named "%{labels::%{_lang}%::location::save}%" with lore "%{lores::%{_lang}%::location::save}%"
+    set slot 17 of metadata tag "LocationMain" of {_p} to crafting table named "%{labels::%{_lang}%::location::goto}%"
+    set slot 18 of metadata tag "LocationMain" of {_p} to barrier named "%{labels::%{_lang}%::location::remove}%" with lore "%{lores::%{_lang}%::location::remove}%"
+    set slot 22 of metadata tag "LocationMain" of {_p} to writable_book named "%{labels::%{_lang}%::location::unsave}%" with lore "%{lores::%{_lang}%::location::unsave}%"
+    set slot 26 of metadata tag "LocationMain" of {_p} to book named "%{labels::%{_lang}%::location::saved}%" with lore "%{lores::%{_lang}%::location::saved}%"
+    open (metadata tag "LocationMain" of {_p}) to {_p}
+
+
+##TP Request Menu Generator
+function openTPAskMenu(p: player, lang: text):
+    set metadata tag "TPAsk" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::tp::chest}%"
+    set {_count} to 0
+    loop all players:
+        set slot {_count} of metadata tag "TPAsk" of {_p} to loop-player's skull named "%loop-player%"
+        set {_count} to {_count} + 1
+    open (metadata tag "TPAsk" of {_p}) to {_p}
+
+##TP Accept Menu Generator
+function openTPCancelMenu(p: player, lang: text):
+    set metadata tag "TPCancel" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::tp::chest}%"
+    set {_count} to 0
+    loop all players:
+        set slot {_count} of metadata tag "TPCancel" of {_p} to loop-player's skull named "%loop-player%"
+        set {_count} to {_count} + 1
+    open (metadata tag "TPCancel" of {_p}) to {_p}
+
+##Location Anvil Menu Generator
+function openLocationAnvil(p: player, status: text, lang: text):
+    set {_gui} to a new anvil gui named "%{labels::%{_lang}%::location::anvil::title}%" with default text "%{labels::%{_lang}%::location::anvil::text}%"
+    set {status::%uuid of {_p}%} to {_status}
+    open anvil gui {_gui} to {_p}
+
+##Paginated Location Menu Generator
+function openPaginatedLocations(p: player, lang: text):
+    set {selectedPage::%uuid of {_p}%} to 0
+    clear {locationPages::%uuid of {_p}%::*}
+    set {_page} to 0
+    set {_count} to 0
+    add "Locations%{_page}%" to {locationPages::%uuid of {_p}%::*}
+    loop {sortedLocations::*}:
+        if {_count} > 24:
+            set {_count} to 0
+            set {_page} to {_page} + 1
+            add "Locations%{_page}%" to {locationPages::%uuid of {_p}%::*}
+        add "%loop-value%" to {locationPages::%uuid of {_p}%::Locations%{_page}%::*}
+        set {_count} to {_count} + 1
+    loop {locationPages::%uuid of {_p}%::*}:
+        set metadata tag "%loop-value%" of {_p} to chest inventory with 3 rows named "%loop-value%"
+        set {_count} to 0
+        loop {locationPages::%uuid of {_p}%::%loop-value-1%::*}:
+            if {_count} is 18:
+                set {_count} to {_count} + 1
+            set {_lore} to "%{lores::%{_lang}%::location::popularity}%: %{location::%loop-value-2%::freq}%"
+            set slot {_count} of metadata tag "%loop-value-1%" of {_p} to {location::%loop-value-2%::icon} named "%loop-value-2%" with lore "%{_lore}%"
+            set {_count} to {_count} + 1
+        set slot 18 of metadata tag "%loop-value%" of {_p} to redstone block named "%{labels::%{_lang}%::goto::previous}%"
+        set slot 26 of metadata tag "%loop-value%" of {_p} to gold block named "%{labels::%{_lang}%::goto::next}%"
+    openCurrentLocationPage({_p})
+
+function openCurrentLocationPage(p: player):
+    open (metadata tag "Locations%{selectedPage::%uuid of {_p}%}%" of {_p}) to {_p}
+
+##Operate Saved Locations
+function openSavedLocationsMenu(p: player, lang: text):
+    set {_uuid} to uuid of {_p}
+    set metadata tag "SavedLocations" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::location::saved}%"
+    set {_count} to 0
+    loop {savedLocations::%{_uuid}%::*}:
+        if {location::%loop-value%::coords} is set:
+            set {_lore} to "%{lores::%{_lang}%::location::popularity}%: %{location::%loop-value%::freq}%"
+            set slot {_count} of metadata tag "SavedLocations" of {_p} to {location::%loop-value%::icon} named "%loop-value%" with lore "%{_lore}%"
+            set {_count} to {_count} + 1
+    open (metadata tag "SavedLocations" of {_p}) to {_p}
+
+##Save Location
+function saveLocation(p: player, target: text):
+    set {_uuid} to uuid of {_p}
+    set {_lang} to {language::%{_uuid}%}
+    if {location::%{_target}%::coords} is set:
+        if {savedLocations::%{_uuid}%::*} does not contain {_target}:
+            if size of {savedLocations::%{_uuid}%::*} >= 27:
+                send "%{messages::%{_lang}%::location::add::full}%" to {_p}
+            else:
+                add {_target} to {savedLocations::%{_uuid}%::*}
+                send "%{messages::%{_lang}%::location::save::executed::1}%%{_target}%%{messages::%{_lang}%::location::save::executed::2}%" to {_p}
+        else:
+            send "%{messages::%{_lang}%::location::add::fail}%" to {_p}
+    else:
+        send "%{messages::%{_lang}%::goto::fail}%" to {_p}
+
+##Unsave Location
+function unsaveLocation(p: player, target: text):
+    set {_uuid} to uuid of {_p}
+    set {_lang} to {language::%{_uuid}%}
+    if {savedLocations::%{_uuid}%::*} contains {_target}:
+        remove {_target} from {savedLocations::%{_uuid}%::*}
+        send "%{messages::%{_lang}%::location::unsave::executed::1}%%{_target}%%{messages::%{_lang}%::location::unsave::executed::2}%" to {_p}
+    else:
+        send "%{messages::%{_lang}%::location::remove::fail}%" to {_p}
+
+## GUI Click Handlers
+function handleCommandsMenuClick(p: player, slotObj: integer):
+    if {_slotObj} is 0:
+        close {_p}'s inventory
+        toWilderness({_p})
+    else if {_slotObj} is 4:
+        close {_p}'s inventory
+        goHome({_p})
+    else if {_slotObj} is 8:
+        close {_p}'s inventory
+        setHome({_p})
+    else if {_slotObj} is 9:
+        close {_p}'s inventory
+        openTPMenu({_p}, {language::%uuid of {_p}%})
+    else if {_slotObj} is 13:
+        close {_p}'s inventory
+        goBack({_p})
+    else if {_slotObj} is 17:
+        close {_p}'s inventory
+        openLocationMenu({_p}, {language::%uuid of {_p}%})
+    else if {_slotObj} is 18:
+        close {_p}'s inventory
+        curse({_p})
+    else if {_slotObj} is 22:
+        close {_p}'s inventory
+        gotoGrave({_p})
+    else if {_slotObj} is 26:
+        close {_p}'s inventory
+        bless({_p})
+
+##Operate TP Menu
+function handleTPMainMenuClick(p: player, slotObj: integer):
+    if {_slotObj} is 9:
+        close {_p}'s inventory
+        openTPAskMenu({_p}, {language::%uuid of {_p}%})
+    else if {_slotObj} is 13:
+        close {_p}'s inventory
+        acceptTP({_p})
+    else if {_slotObj} is 17:
+        close {_p}'s inventory
+        openTPCancelMenu({_p}, {language::%uuid of {_p}%})
+
+##Operate Location Menu
+function handleLocationMainMenuClick(p: player, slotObj: integer):
+    if {_slotObj} is 4:
+        close {_p}'s inventory
+        openLocationAnvil({_p}, "setLocIcon", {language::%uuid of {_p}%})
+    else if {_slotObj} is 9:
+        close {_p}'s inventory
+        openLocationAnvil({_p}, "nameLoc", {language::%uuid of {_p}%})
+    else if {_slotObj} is 13:
+        close {_p}'s inventory
+        openLocationAnvil({_p}, "saveLoc", {language::%uuid of {_p}%})
+    else if {_slotObj} is 17:
+        close {_p}'s inventory
+        set {selectedPage::%uuid of {_p}%} to 0
+        openPaginatedLocations({_p}, {language::%uuid of {_p}%})
+    else if {_slotObj} is 18:
+        close {_p}'s inventory
+        openLocationAnvil({_p}, "removeLoc", {language::%uuid of {_p}%})
+    else if {_slotObj} is 22:
+        close {_p}'s inventory
+        openLocationAnvil({_p}, "unsaveLoc", {language::%uuid of {_p}%})
+    else if {_slotObj} is 26:
+        close {_p}'s inventory
+        openSavedLocationsMenu({_p}, {language::%uuid of {_p}%})
+
+##Handle Anvil Input For Location Menu
+function handleLocationAnvilClick(p: player, input: text):
+    set {_status} to {status::%uuid of {_p}%}
+    if {_status} is equal to "nameLoc":
+        addLocation({_p}, {_input})
+    else if {_status} is equal to "removeLoc":
+        removeLocation({_p}, {_input})
+    else if {_status} is equal to "setLocIcon":
+        setIcon({_p}, {_input})
+    else if {_status} is equal to "saveLoc":
+        saveLocation({_p}, {_input})
+    else if {_status} is equal to "unsaveLoc":
+        unsaveLocation({_p}, {_input})
+    clear {status::%uuid of {_p}%}
+    close {_p}'s inventory
+
+##Handle TP Ask Click
+function handleTPAskClick(p: player, i: item):
+    if {_i} is set:
+        if {_i} isn't air:
+            set {_targetName} to uncolored name of {_i}
+            set {_target} to {_targetName} parsed as player
+            if {_target} is set:
+                close {_p}'s inventory
+                askTP({_p}, {_target})
+
+##Handle TP Cancel Click
+function handleTPCancelClick(p: player, i: item):
+    if {_i} is set:
+        if {_i} isn't air:
+            set {_targetName} to uncolored name of {_i}
+            set {_target} to {_targetName} parsed as player
+            if {_target} is set:
+                close {_p}'s inventory
+                cancelTP({_p}, {_target})
+
+##Handle Location Click In Paginated Menu
+function handleSavedLocationsClick(p: player, i: item):
+    if {_i} is set:
+        if {_i} isn't air:
+            set {_targetName} to uncolored name of {_i}
+            if {location::%{_targetName}%::coords} is set:
+                close {_p}'s inventory
+                gotoLocation({_p}, {_targetName})
+
+##Handle Location Click In Paginated Menu
+function handleLocationPagesClick(p: player, slotObj: integer, i: item):
+    if {_i} is set:
+        if {_i} isn't air:
+            set {_targetName} to uncolored name of {_i}
+            if {location::%{_targetName}%::coords} is set:
+                close {_p}'s inventory
+                gotoLocation({_p}, {_targetName})
+    if {_slotObj} is 26:
+        set {selectedPage::%uuid of {_p}%} to {selectedPage::%uuid of {_p}%} + 1
+        if size of {sortedLocations::*} > {selectedPage::%uuid of {_p}%} * 25:
+            close {_p}'s inventory
+            openCurrentLocationPage({_p})
+        else:
+            set {selectedPage::%uuid of {_p}%} to {selectedPage::%uuid of {_p}%} - 1
+    else if {_slotObj} is 18:
+        if {selectedPage::%uuid of {_p}%} > 0:
+            close {_p}'s inventory
+            set {selectedPage::%uuid of {_p}%} to {selectedPage::%uuid of {_p}%} - 1
+            openCurrentLocationPage({_p})

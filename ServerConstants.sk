@@ -1,0 +1,414 @@
+##--------------------------------##
+##      Server Constants File     ##
+## This File Contains All The Constant Variables Used In The Server
+##--------------------------------##
+
+##--------------------------------##
+##     Caliberation Functions     ##
+##--------------------------------##
+
+##Caliberate Banned Places
+function caliberateBannedPlaces():
+    addBannedPlace("pvp", "world", 75, 80, 261, 94, 69, 281)
+
+##Caliberate Color Options
+function caliberateColors():
+    set {colors::*} to "black", "blue", "green", "cyan", "red", "purple", "orange", "grey", "dark gray", "light blue", "light green", "light cyan", "light red", "magenta", "yellow" and "white"
+
+##Caliberate Hex Codes
+function caliberateHexCodes():
+    set {hexcode::*} to "A", "a", "B", "b", "C", "c", "D", "d", "E", "e", "F", "f", "0", "1", "2", "3", "4", "5", "6", "7", "8" and "9"
+
+##Caliberate Hints
+function caliberateHints():
+    ##Command Output
+
+    ##Default
+
+    ##Command Restrictions
+    set {messages::default::restrictions::pvp} to "&4No Commands In Arena!"
+
+    ##Pray
+    set {messages::default::pray} to "&eYou Are Blessed!"
+    set {messages::default::praycd} to "&4Are you sure you are sincere?"
+    ##Wild
+    set {messages::default::wild::executed} to "&eSending You To Wild"
+    set {messages::default::wild::delay} to "&ePlease Wait For 3 Seconds"
+    set {messages::default::wild::safe} to "&eSent You To Wild"
+    set {messages::default::wild::unsafe} to "&4Location Is Not Safe!"
+    set {messages::default::wild::cd} to "&eWild Can Only Be Executed Once Per Minute!"
+    set {messages::default::wild::error} to "&4Wild Can Only Be Executed In The Overworld"
+    ##SetHome
+    set {messages::default::sethome} to "&eSet Home Position to "
+    ##Home
+    set {messages::default::home::executed} to "&eSent You Back Home"
+    set {messages::default::home::fail} to "&4You Don't Have A Home"
+    ##Back
+    set {messages::default::back::executed} to "&eSent You Back"
+    set {messages::default::back::fail} to "&4No More Buffer Location"
+    ##TPA
+    set {messages::default::tpa::sendrequest} to "&eRequested Teleportation To "
+    set {messages::default::tpa::receiverequest} to "&e Request Teleportation to You"
+    set {messages::default::tpa::expired} to "&eRequest Expired"
+    set {messages::default::tpa::pending} to "&4Target Player Has Pending Request"
+    set {messages::default::tpa::notarget} to "&4Please Select Target"
+    ##TPK
+    set {messages::default::tpk::executed} to "&eTeleporting in 3 seconds"
+    set {messages::default::tpk::fail} to "&4No Request or Requrest Expired!"
+    ##TPC
+    set {messages::default::tpc::executed} to "&eCanceled Teleportation Request to "
+    set {messages::default::tpc::fail} to "&4No Request Was Sent To Target Player"
+    set {messages::default::tpc::notarget} to "&4Please Select Target"
+    ##Location Add
+    set {messages::default::location::add::executed} to "&eSet Location "
+    set {messages::default::location::add::fail} to "&4Location Already Exists"
+    set {messages::default::location::add::full} to "&4Saved List Is Full (Max 27)"
+    ##Location Remove
+    set {messages::default::location::remove::executed} to "&eLocation Removed"
+    set {messages::default::location::remove::fail} to "&4Location Doesn't Exist"
+    set {messages::default::location::unknown} to "&4Unknown Parameter"
+    ##Location Save
+    set {messages::default::location::save::executed::1} to "&eLocation "
+    set {messages::default::location::save::executed::2} to "&e Saved"
+    set {messages::default::location::unsave::executed::1} to "&eLocation "
+    set {messages::default::location::unsave::executed::2} to "&e Unsaved"
+    ##Location SetIcon
+    set {messages::default::location::setIcon::executed} to "&eNew Icon Set"
+    set {messages::default::location::setIcon::isAir} to "&4Icon Cannot Be Air"
+    set {messages::default::location::setIcon::fail} to "&4Location Doesn't Exist"
+    ##Goto
+    set {messages::default::goto::executed} to "&eSent You To "
+    set {messages::default::goto::fail} to "&eNo Such Location!"
+    ##Grave
+    set {messages::default::grave::executed} to "&eSent You To Your Grave"
+    set {messages::default::grave::fail} to "&4You Haven't Died Since Last Visit To Grave!"
+    ##VIP
+    set {messages::default::vip::true} to "&eTarget Player Is VIP"
+    set {messages::default::vip::false} to "&eTarget Player Is Not VIP"
+    ##Color
+    set {messages::default::color::executed} to "&eDisplay Name Color Set"
+    set {messages::default::color::fail} to "&4Please Enter A Valid Color:"
+    set {messages::default::color::nohashtag} to "&4Hex Code Must Start From #"
+    set {messages::default::color::nosixvalue} to "&4Hex Code Must Contain 6 Values"
+    set {messages::default::color::codeerror} to "&4Value Provided Isn't Hex Code"
+    ##Auth
+    set {messages::default::auth::notauthed} to "&4You Are Not An Authorized Player"
+    set {messages::default::auth::alreadyauthed} to "&ePlayer Is Already Authorized"
+    set {messages::default::auth::executed} to "&ePlayer Is Authorized"
+    set {messages::default::auth::authed} to "&eYou Have Been Authorized"
+
+    ##zh_tw
+
+    ##Command Restrictions
+    set {messages::zh_tw::restrictions::pvp} to "&4競技場還可以用指令是吧?!"
+
+    ##Pray
+    set {messages::zh_tw::pray} to "&e您受到了神的祝福!"
+    set {messages::zh_tw::praycd} to "&4您確定您夠真誠嗎?"
+    ##Wild
+    set {messages::zh_tw::wild::executed} to "&e正在將您傳送到野外"
+    set {messages::zh_tw::wild::delay} to "&e請等待3秒鐘"
+    set {messages::zh_tw::wild::safe} to "&e已經您傳送至野外"
+    set {messages::zh_tw::wild::unsafe} to "&4傳送地點不安全!"
+    set {messages::zh_tw::wild::cd} to "&e老子都把你送到Wild了你至少探索一下附近吧"
+    set {messages::zh_tw::wild::error} to "&4Wild只能在主世界使用"
+    ##SetHome
+    set {messages::zh_tw::sethome} to "&e已將家設定於"
+    ##Home
+    set {messages::zh_tw::home::executed} to "&e已將您傳送回家"
+    set {messages::zh_tw::home::fail} to "&4您尚未設定家的位置"
+    ##Back
+    set {messages::zh_tw::back::executed} to "&e已將您傳送回去暫存的地點"
+    set {messages::zh_tw::back::fail} to "&4您沒有暫存的地點了"
+    ##TPA
+    set {messages::zh_tw::tpa::sendrequest} to "&e已發送傳送請求至"
+    set {messages::zh_tw::tpa::receiverequest} to "&e向您發送了傳送請求"
+    set {messages::zh_tw::tpa::expired} to "&e請求已失效"
+    set {messages::zh_tw::tpa::pending} to "&4請求目標尚有未處理之請求"
+    set {messages::zh_tw::tpa::notarget} to "&4請選擇請求目標"
+    ##TPK
+    set {messages::zh_tw::tpk::executed} to "&e將在3秒後傳送"
+    set {messages::zh_tw::tpk::fail} to "&4您沒有傳送請求或請求已失效!"
+    ##TPC
+    set {messages::zh_tw::tpc::executed} to "&e已取消請求傳送到"
+    set {messages::zh_tw::tpc::fail} to "&4您沒有請求傳送到"
+    set {messages::zh_tw::tpc::notarget} to "&4請選擇取消目標"
+    ##Location Add
+    set {messages::zh_tw::location::add::executed} to "&e已新增地點"
+    set {messages::zh_tw::location::add::fail} to "&4地點已存在"
+    set {messages::zh_tw::location::add::full} to "&4收藏清單已滿（最多 27 個）"
+    ##Location Remove
+    set {messages::zh_tw::location::remove::executed} to "&e已移除地點"
+    set {messages::zh_tw::location::remove::fail} to "&4地點不存在"
+    set {messages::zh_tw::location::unknown} to "&4未知參數"
+    ##Location Save
+    set {messages::zh_tw::location::save::executed::1} to "&e已收藏地點"
+    set {messages::zh_tw::location::save::executed::2} to ""
+    set {messages::zh_tw::location::unsave::executed::1} to "&e已取消收藏地點"
+    set {messages::zh_tw::location::unsave::executed::2} to ""
+    ##Location SetIcon
+    set {messages::zh_tw::location::setIcon::executed} to "&e已為該地點設定新圖示"
+    set {messages::zh_tw::location::setIcon::isAir} to "&4圖示不能為空氣方塊"
+    set {messages::zh_tw::location::setIcon::fail} to "&4地點不存在"
+    ##Goto
+    set {messages::zh_tw::goto::executed} to "&e已將您傳送至"
+    set {messages::zh_tw::goto::fail} to "&e沒有該地點!"
+    ##Grave
+    set {messages::zh_tw::grave::executed} to "&e已將您送回您的墓地"
+    set {messages::zh_tw::grave::fail} to "&4自上次您造訪墓地後您尚未死亡!"
+    ##VIP
+    set {messages::zh_tw::vip::true} to "&e目標玩家是VIP"
+    set {messages::zh_tw::vip::false} to "&e目標玩家不是VIP"
+    ##Color
+    set {messages::zh_tw::color::executed} to "&e已設定名稱顏色"
+    set {messages::zh_tw::color::fail} to "&4請輸入有效的顏色:"
+    set {messages::zh_tw::color::nohashtag} to "&4自訂顏色需以#開始"
+    set {messages::zh_tw::color::nosixvalue} to "&4自訂顏色需為6位值"
+    set {messages::zh_tw::color::codeerror} to "&4數值無法轉為自訂顏色"
+    ##Auth
+    set {messages::zh_tw::auth::notauthed} to "&4你不是已授權的玩家"
+    set {messages::zh_tw::auth::alreadyauthed} to "&e目標玩家已經被授權了"
+    set {messages::zh_tw::auth::executed} to "&e您已授權目標玩家"
+    set {messages::zh_tw::auth::authed} to "&e您被授權了"
+
+    ##ja_jp
+
+    ##Command Restrictions
+    set {messages::ja_jp::restrictions::pvp} to "&4アリーナでコマンドは使えません!"
+
+    ##Pray
+    set {messages::ja_jp::pray} to "&e神の祝福を受けました!"
+    set {messages::ja_jp::praycd} to "&4本当に誠実ですか?"
+    ##Wild
+    set {messages::ja_jp::wild::executed} to "&eワイルドへテレポート中"
+    set {messages::ja_jp::wild::delay} to "&e3秒お待ちください"
+    set {messages::ja_jp::wild::safe} to "&eワイルドへテレポートしました"
+    set {messages::ja_jp::wild::unsafe} to "&4テレポート先が安全ではありません!"
+    set {messages::ja_jp::wild::cd} to "&eワイルドは1分に1回のみ実行できます!"
+    set {messages::ja_jp::wild::error} to "&4ワイルドはオーバーワールドでのみ使用できます"
+    ##SetHome
+    set {messages::ja_jp::sethome} to "&eホームを設定しました: "
+    ##Home
+    set {messages::ja_jp::home::executed} to "&eホームへテレポートしました"
+    set {messages::ja_jp::home::fail} to "&4ホームが設定されていません"
+    ##Back
+    set {messages::ja_jp::back::executed} to "&e前の場所に戻りました"
+    set {messages::ja_jp::back::fail} to "&4戻れる場所がありません"
+    ##TPA
+    set {messages::ja_jp::tpa::sendrequest} to "&eテレポートリクエストを送信しました: "
+    set {messages::ja_jp::tpa::receiverequest} to "&eからテレポートリクエストが届きました"
+    set {messages::ja_jp::tpa::expired} to "&eリクエストが期限切れになりました"
+    set {messages::ja_jp::tpa::pending} to "&4対象プレイヤーには保留中のリクエストがあります"
+    set {messages::ja_jp::tpa::notarget} to "&4対象を選択してください"
+    ##TPK
+    set {messages::ja_jp::tpk::executed} to "&e3秒後にテレポートします"
+    set {messages::ja_jp::tpk::fail} to "&4リクエストがないか、期限切れです!"
+    ##TPC
+    set {messages::ja_jp::tpc::executed} to "&eテレポートリクエストをキャンセルしました: "
+    set {messages::ja_jp::tpc::fail} to "&4対象プレイヤーへのリクエストがありません"
+    set {messages::ja_jp::tpc::notarget} to "&4対象を選択してください"
+    ##Location Add
+    set {messages::ja_jp::location::add::executed} to "&e地点を追加しました: "
+    set {messages::ja_jp::location::add::fail} to "&4その地点は既に存在します"
+    set {messages::ja_jp::location::add::full} to "&4お気に入りリストが満杯です（最大27件）"
+    ##Location Remove
+    set {messages::ja_jp::location::remove::executed} to "&e地点を削除しました"
+    set {messages::ja_jp::location::remove::fail} to "&4その地点は存在しません"
+    set {messages::ja_jp::location::unknown} to "&4不明なパラメータ"
+    ##Location Save
+    set {messages::ja_jp::location::save::executed::1} to "&e地点 "
+    set {messages::ja_jp::location::save::executed::2} to "&eを保存しました"
+    set {messages::ja_jp::location::unsave::executed::1} to "&e地点 "
+    set {messages::ja_jp::location::unsave::executed::2} to "&eの保存を解除しました"
+    ##Location SetIcon
+    set {messages::ja_jp::location::setIcon::executed} to "&e新しいアイコンを設定しました"
+    set {messages::ja_jp::location::setIcon::isAir} to "&4アイコンを空気にすることはできません"
+    set {messages::ja_jp::location::setIcon::fail} to "&4その地点は存在しません"
+    ##Goto
+    set {messages::ja_jp::goto::executed} to "&eテレポートしました: "
+    set {messages::ja_jp::goto::fail} to "&eその地点は存在しません!"
+    ##Grave
+    set {messages::ja_jp::grave::executed} to "&e墓地へテレポートしました"
+    set {messages::ja_jp::grave::fail} to "&4前回の墓地訪問以降、死亡していません!"
+    ##VIP
+    set {messages::ja_jp::vip::true} to "&e対象プレイヤーはVIPです"
+    set {messages::ja_jp::vip::false} to "&e対象プレイヤーはVIPではありません"
+    ##Color
+    set {messages::ja_jp::color::executed} to "&e表示名の色を設定しました"
+    set {messages::ja_jp::color::fail} to "&4有効な色を入力してください:"
+    set {messages::ja_jp::color::nohashtag} to "&4カラーコードは#で始める必要があります"
+    set {messages::ja_jp::color::nosixvalue} to "&4カラーコードは6桁である必要があります"
+    set {messages::ja_jp::color::codeerror} to "&4入力された値はカラーコードではありません"
+    ##Auth
+    set {messages::ja_jp::auth::notauthed} to "&4あなたは認証されたプレイヤーではありません"
+    set {messages::ja_jp::auth::alreadyauthed} to "&eそのプレイヤーは既に認証されています"
+    set {messages::ja_jp::auth::executed} to "&eプレイヤーを認証しました"
+    set {messages::ja_jp::auth::authed} to "&eあなたは認証されました"
+
+    ##GUI Labels
+
+    ##Default
+
+    ##Commands Menu
+    set {labels::default::commands::title} to "Commands Menu"
+    set {labels::default::commands::wild} to "Wild"
+    set {labels::default::commands::home} to "Home"
+    set {labels::default::commands::sethome} to "Set Home"
+    set {labels::default::commands::tp} to "TP"
+    set {labels::default::commands::back} to "Back"
+    set {labels::default::commands::location} to "Location"
+    set {labels::default::commands::grave} to "Grave"
+    set {labels::default::commands::pray} to "Pray"
+    ##TP Menu
+    set {labels::default::tp::title} to "Teleport Menu"
+    set {labels::default::tp::tpa} to "Request TP"
+    set {labels::default::tp::tpk} to "Accept TP"
+    set {labels::default::tp::tpc} to "Cancel TP"
+    ##Location Menu
+    set {labels::default::location::title} to "Location Menu"
+    set {labels::default::location::add} to "Add Location"
+    set {labels::default::location::setIcon} to "Set Location Icon"
+    set {labels::default::location::goto} to "Goto Location"
+    set {labels::default::location::remove} to "Remove Location"
+    set {labels::default::location::saved} to "Saved List"
+    set {labels::default::location::save} to "Save Location"
+    set {labels::default::location::unsave} to "Remove Favorite Location"
+    ##TP
+    set {labels::default::tp::chest} to "Select Player"
+    ##Location anvil
+    set {labels::default::location::anvil::title} to "Name The Location" 
+    set {labels::default::location::anvil::text} to "Rename"
+    ##Goto Page Footer
+    set {labels::default::goto::previous} to "Previous Page"
+    set {labels::default::goto::next} to "Next Page"
+
+    ##zh_tw
+
+    ##Commands Menu
+    set {labels::zh_tw::commands::title} to "指令首頁"
+    set {labels::zh_tw::commands::wild} to "傳送至野外"
+    set {labels::zh_tw::commands::home} to "傳送回家"
+    set {labels::zh_tw::commands::sethome} to "設定家的位置"
+    set {labels::zh_tw::commands::tp} to "傳送頁面"
+    set {labels::zh_tw::commands::back} to "回暫存地點"
+    set {labels::zh_tw::commands::location} to "地點頁面"
+    set {labels::zh_tw::commands::grave} to "傳送回墓地"
+    set {labels::zh_tw::commands::pray} to "祈禱"
+    ##TP Menu
+    set {labels::zh_tw::tp::title} to "傳送頁面"
+    set {labels::zh_tw::tp::tpa} to "請求傳送"
+    set {labels::zh_tw::tp::tpk} to "同意傳送"
+    set {labels::zh_tw::tp::tpc} to "取消傳送"
+    ##Location Menu
+    set {labels::zh_tw::location::title} to "地點頁面"
+    set {labels::zh_tw::location::add} to "新增地點"
+    set {labels::zh_tw::location::setIcon} to "變更地點圖示"
+    set {labels::zh_tw::location::goto} to "傳送至地點"
+    set {labels::zh_tw::location::remove} to "刪除地點"
+    set {labels::zh_tw::location::saved} to "收藏清單"
+    set {labels::zh_tw::location::save} to "收藏地點"
+    set {labels::zh_tw::location::unsave} to "移除收藏地點"
+    ##TP
+    set {labels::zh_tw::tp::chest} to "請選擇目標玩家"
+    ##Location anvil
+    set {labels::zh_tw::location::anvil::title} to "請打出該地點名稱" 
+    set {labels::zh_tw::location::anvil::text} to "重新命名"
+    ##Goto Page Footer
+    set {labels::zh_tw::goto::previous} to "上一頁"
+    set {labels::zh_tw::goto::next} to "下一頁"
+
+    ##ja_jp
+
+    ##Commands Menu
+    set {labels::ja_jp::commands::title} to "コマンドメニュー"
+    set {labels::ja_jp::commands::wild} to "ワイルド"
+    set {labels::ja_jp::commands::home} to "ホーム"
+    set {labels::ja_jp::commands::sethome} to "ホーム設定"
+    set {labels::ja_jp::commands::tp} to "テレポート"
+    set {labels::ja_jp::commands::back} to "戻る"
+    set {labels::ja_jp::commands::location} to "地点"
+    set {labels::ja_jp::commands::grave} to "墓地"
+    set {labels::ja_jp::commands::pray} to "祈り"
+    ##TP Menu
+    set {labels::ja_jp::tp::title} to "テレポートメニュー"
+    set {labels::ja_jp::tp::tpa} to "テレポート依頼"
+    set {labels::ja_jp::tp::tpk} to "テレポート許可"
+    set {labels::ja_jp::tp::tpc} to "テレポート取消"
+    ##Location Menu
+    set {labels::ja_jp::location::title} to "地点メニュー"
+    set {labels::ja_jp::location::add} to "地点を追加"
+    set {labels::ja_jp::location::setIcon} to "アイコン設定"
+    set {labels::ja_jp::location::goto} to "地点へ移動"
+    set {labels::ja_jp::location::remove} to "地点を削除"
+    set {labels::ja_jp::location::saved} to "お気に入り"
+    set {labels::ja_jp::location::save} to "地点を保存"
+    set {labels::ja_jp::location::unsave} to "お気に入りを削除"
+    ##TP
+    set {labels::ja_jp::tp::chest} to "プレイヤーを選択"
+    ##Location anvil
+    set {labels::ja_jp::location::anvil::title} to "地点名を入力" 
+    set {labels::ja_jp::location::anvil::text} to "名前変更"
+    ##Goto Page Footer
+    set {labels::ja_jp::goto::previous} to "前のページ"
+    set {labels::ja_jp::goto::next} to "次のページ"
+
+
+    ##GUI Lores
+
+    ##Default
+
+    ##Commands Menu
+    set {lores::default::commands::wild} to "To Wilderness"
+    set {lores::default::commands::home} to "Go Back Home"
+    set {lores::default::commands::sethome} to "Set Your Home"
+    set {lores::default::commands::tp} to "Ask Accept or Cancel TP"
+    set {lores::default::commands::back} to "Go Back From Point Of TP"
+    set {lores::default::commands::location} to "Add Remove or Go To Location"
+    set {lores::default::commands::666} to "Mystery Command"
+    set {lores::default::commands::grave} to "Send You To Last Death Location"
+    set {lores::default::commands::pray} to "Blessing From The God"
+    ##Location Menu
+    set {lores::default::location::remove} to "&4Warning! Deletion Cannot Be Undone!"
+    set {lores::default::location::saved} to "View Your Saved Locations"
+    set {lores::default::location::save} to "Save A Location To Your List"
+    set {lores::default::location::unsave} to "Remove A Location From Your List"
+    ##Location Goto Lore
+    set {lores::default::location::popularity} to "Popularity"
+
+    ##zh_tw
+    
+    set {lores::zh_tw::commands::wild} to "將您傳送至野外(很遠的地方)"
+    set {lores::zh_tw::commands::home} to "將您傳送回家"
+    set {lores::zh_tw::commands::sethome} to "將您的家設定於您的所在位置"
+    set {lores::zh_tw::commands::tp} to "請求、同意、或取消傳送請求"
+    set {lores::zh_tw::commands::back} to "將您傳送回上次使用傳送類指令的地點"
+    set {lores::zh_tw::commands::location} to "新增、刪除地點及更改圖示"
+    set {lores::zh_tw::commands::666} to "神秘小指令"
+    set {lores::zh_tw::commands::grave} to "將您傳送回最近一次的死亡地點"
+    set {lores::zh_tw::commands::pray} to "來自神明的祝福"
+    ##Location Menu
+    set {lores::zh_tw::location::remove} to "&4注意！已刪除的地點將無法復原"
+    set {lores::zh_tw::location::saved} to "查看您的收藏地點"
+    set {lores::zh_tw::location::save} to "將地點加入收藏"
+    set {lores::zh_tw::location::unsave} to "將地點從收藏移除"
+    ##Location Goto Lore
+    set {lores::zh_tw::location::popularity} to "人氣"
+
+    ##ja_jp
+    
+    set {lores::ja_jp::commands::wild} to "ワイルドへテレポート"
+    set {lores::ja_jp::commands::home} to "ホームへ帰る"
+    set {lores::ja_jp::commands::sethome} to "現在地をホームに設定"
+    set {lores::ja_jp::commands::tp} to "テレポートの依頼・許可・取消"
+    set {lores::ja_jp::commands::back} to "テレポート前の場所に戻る"
+    set {lores::ja_jp::commands::location} to "地点の追加・削除・移動"
+    set {lores::ja_jp::commands::666} to "謎のコマンド"
+    set {lores::ja_jp::commands::grave} to "最後の死亡地点へテレポート"
+    set {lores::ja_jp::commands::pray} to "神からの祝福"
+    ##Location Menu
+    set {lores::ja_jp::location::remove} to "&4警告！削除は取り消せません!"
+    set {lores::ja_jp::location::saved} to "保存した地点を表示"
+    set {lores::ja_jp::location::save} to "地点をリストに保存"
+    set {lores::ja_jp::location::unsave} to "地点をリストから解除"
+    ##Location Goto Lore
+    set {lores::ja_jp::location::popularity} to "人気度"
