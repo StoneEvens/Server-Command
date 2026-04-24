@@ -1,0 +1,747 @@
+##================================================
+## ServerCoin Economy System v2.0 - Proof of State
+## Cryptocurrency-like economy with AMM & P2P Contracts
+##================================================
+## Features:
+##   - Auto-tracking Server Quests (minting rewards)
+##   - Peer-to-peer Contracts with escrow
+##   - Decentralized Jury Duty for disputes
+##   - Fee recycling (circular economy, no DAO)
+##   - AMM (Automated Market Maker) for Emerald <-> Coin swap
+##================================================
+
+##==========================================
+## INITIALIZATION
+##==========================================
+
+on load:
+    initEconomy()
+
+function initEconomy():
+    ## Only set defaults if never initialized
+    if {eco::initialized} is not set:
+        set {eco::maxSupply} to 1000000
+        set {eco::poolGenesis} to 500000
+        set {eco::totalMined} to 0 
+        set {eco::baseReward} to 10
+        set {eco::halvingInterval} to 200000
+        set {eco::transferFee} to 2
+        set {eco::swapFee} to 0.3
+        set {eco::validatorFee} to 2
+        set {eco::contractCount} to 0
+        set {eco::initialized} to true
+
+    ## Seed AMM pool at genesis
+    if {pool::initialized} is not set:
+        set {pool::coin} to {eco::poolGenesis}
+        set {pool::emerald} to 10000
+        set {pool::initialized} to true
+
+##==========================================
+## UTILITY FUNCTIONS
+##==========================================
+
+function roundTwo(n: number) :: number:
+    return round({_n} * 100) / 100
+
+## Current mining reward with halving applied
+function getReward() :: number:
+    set {_reward} to {eco::baseReward}
+    set {_mined} to {eco::totalMined}
+    set {_interval} to {eco::halvingInterval}
+    while {_mined} >= {_interval}:
+        set {_reward} to {_reward} / 2
+        remove {_interval} from {_mined}
+    if {_reward} < 0.01:
+        return 0
+    return {_reward}
+
+function getBalance(p: player) :: number:
+    set {_uuid} to uuid of {_p}
+    if {balance::%{_uuid}%} is not set:
+        set {balance::%{_uuid}%} to 0
+    return {balance::%{_uuid}%}
+
+function addBalance(p: player, amount: number):
+    set {_uuid} to uuid of {_p}
+    if {balance::%{_uuid}%} is not set:
+        set {balance::%{_uuid}%} to 0
+    add {_amount} to {balance::%{_uuid}%}
+
+function removeBalance(p: player, amount: number):
+    set {_uuid} to uuid of {_p}
+    if {balance::%{_uuid}%} is not set:
+        set {balance::%{_uuid}%} to 0
+    remove {_amount} from {balance::%{_uuid}%}
+
+function getPrice() :: number:
+    if {pool::emerald} <= 0:
+        return 0
+    return roundTwo({pool::coin} / {pool::emerald})
+
+## Recycles fee back into the Unmined Pool by reducing {eco::totalMined}
+function recycleFee(amount: number):
+    remove {_amount} from {eco::totalMined}
+    if {eco::totalMined} < 0:
+        set {eco::totalMined} to 0
+
+##==========================================
+## P2P TRANSFERS AND AMM SWAPS
+##==========================================
+
+function transferCoins(sender: player, receiver: player, amount: number):
+    if {_amount} <= 0:
+        send "&4Amount must be positive!" to {_sender}
+        stop
+
+    set {_senderBal} to getBalance({_sender})
+    if {_senderBal} < {_amount}:
+        send "&4Insufficient balance!" to {_sender}
+        stop
+
+    set {_fee} to roundTwo({_amount} * {eco::transferFee} / 100)
+    set {_received} to roundTwo({_amount} - {_fee})
+
+    removeBalance({_sender}, {_amount})
+    addBalance({_receiver}, {_received})
+    
+    ## Circular Economy: Network fees return to Unmined Pool
+    recycleFee({_fee})
+
+    send "&eSent &f%{_received}% ServerCoin &eto &f%{_receiver}% &7(fee: %{_fee}%)" to {_sender}
+    send "&eReceived &f%{_received}% ServerCoin &efrom &f%{_sender}%" to {_receiver}
+
+function swapEmeraldForCoin(p: player, emeraldAmount: number):
+    if {_emeraldAmount} <= 0:
+        stop
+
+    set {_held} to amount of emeralds in {_p}'s inventory
+    if {_held} < {_emeraldAmount}:
+        send "&4Not enough emeralds!" to {_p}
+        stop
+
+    set {_effectiveIn} to {_emeraldAmount} * (1 - {eco::swapFee} / 100)
+    set {_fee} to {_emeraldAmount} * ({eco::swapFee} / 100)
+    set {_k} to {pool::coin} * {pool::emerald}
+    set {_newEmeraldReserve} to {pool::emerald} + {_effectiveIn}
+    set {_coinsOut} to roundTwo({pool::coin} - {_k} / {_newEmeraldReserve})
+
+    if {_coinsOut} <= 0 or {_coinsOut} > {pool::coin} * 0.9:
+        send "&4Trade too small or too large!" to {_p}
+        stop
+
+    remove {_emeraldAmount} of emerald from {_p}'s inventory
+    addBalance({_p}, {_coinsOut})
+
+    add {_emeraldAmount} to {pool::emerald}
+    remove {_coinsOut} from {pool::coin}
+
+    send "&eSwapped &f%{_emeraldAmount}% emeralds &efor &f%{_coinsOut}% ServerCoin" to {_p}
+    send "&7Price: %getPrice()% coin/em" to {_p}
+
+function swapCoinForEmerald(p: player, coinAmount: number):
+    if {_coinAmount} <= 0:
+        stop
+
+    set {_bal} to getBalance({_p})
+    if {_bal} < {_coinAmount}:
+        send "&4Insufficient balance!" to {_p}
+        stop
+
+    set {_fee} to {_coinAmount} * ({eco::swapFee} / 100)
+    set {_effectiveIn} to {_coinAmount} - {_fee}
+
+    set {_k} to {pool::coin} * {pool::emerald}
+    set {_newCoinReserve} to {pool::coin} + {_effectiveIn}
+    set {_emeraldsOut} to floor({pool::emerald} - {_k} / {_newCoinReserve})
+
+    if {_emeraldsOut} <= 0 or {_emeraldsOut} > {pool::emerald} * 0.9:
+        send "&4Trade invalid or too large!" to {_p}
+        stop
+
+    removeBalance({_p}, {_coinAmount})
+    give {_emeraldsOut} of emerald to {_p}
+
+    add {_coinAmount} to {pool::coin}
+    remove {_emeraldsOut} from {pool::emerald}
+    
+    ## The fee part goes back to the Unmined Pool instead of the AMM
+    remove {_fee} from {pool::coin}
+    recycleFee({_fee})
+
+    send "&eSwapped &f%roundTwo({_coinAmount})% ServerCoin &efor &f%{_emeraldsOut}% emeralds" to {_p}
+    send "&7Price: %getPrice()% coin/em" to {_p}
+
+
+##==========================================
+## SERVER QUESTS (AUTO-TRACKING MINTING)
+##==========================================
+
+function generateQuest(p: player):
+    set {_uuid} to uuid of {_p}
+    set {_rand} to a random integer between 1 and 6
+    
+    if {_rand} is 1:
+        set {quest::%{_uuid}%::action} to "mine"
+        set {quest::%{_uuid}%::target} to "stone"
+        set {quest::%{_uuid}%::goal} to 128
+        set {quest::%{_uuid}%::multiplier} to 1.5
+        set {quest::%{_uuid}%::desc} to "Mine 128 Stone"
+    else if {_rand} is 2:
+        set {quest::%{_uuid}%::action} to "consume"
+        set {quest::%{_uuid}%::target} to "bread"
+        set {quest::%{_uuid}%::goal} to 32
+        set {quest::%{_uuid}%::multiplier} to 2.0
+        set {quest::%{_uuid}%::desc} to "Eat 32 Bread"
+    else if {_rand} is 3:
+        set {quest::%{_uuid}%::action} to "kill"
+        set {quest::%{_uuid}%::target} to "zombie"
+        set {quest::%{_uuid}%::goal} to 15
+        set {quest::%{_uuid}%::multiplier} to 3.0
+        set {quest::%{_uuid}%::desc} to "Slay 15 Zombies"
+    else if {_rand} is 4:
+        set {quest::%{_uuid}%::action} to "craft"
+        set {quest::%{_uuid}%::target} to "torch"
+        set {quest::%{_uuid}%::goal} to 64
+        set {quest::%{_uuid}%::multiplier} to 1.0
+        set {quest::%{_uuid}%::desc} to "Craft 64 Torches"
+    else if {_rand} is 5:
+        set {quest::%{_uuid}%::action} to "fish"
+        set {quest::%{_uuid}%::target} to "any"
+        set {quest::%{_uuid}%::goal} to 5
+        set {quest::%{_uuid}%::multiplier} to 4.0
+        set {quest::%{_uuid}%::desc} to "Catch 5 Fish"
+    else if {_rand} is 6:
+        set {quest::%{_uuid}%::action} to "mine"
+        set {quest::%{_uuid}%::target} to "log"
+        set {quest::%{_uuid}%::goal} to 64
+        set {quest::%{_uuid}%::multiplier} to 2.0
+        set {quest::%{_uuid}%::desc} to "Chop 64 Logs"
+
+    set {quest::%{_uuid}%::progress} to 0
+    send "&6[ServerContract] &eNew Quest: &f%{quest::%{_uuid}%::desc}%" to {_p}
+
+function advanceQuest(p: player, action: text, detail: text):
+    set {_uuid} to uuid of {_p}
+    
+    if {quest::%{_uuid}%::action} is not set:
+        stop
+        
+    if {quest::%{_uuid}%::action} is {_action}:
+        if {quest::%{_uuid}%::target} is "any" or {_detail} contains {quest::%{_uuid}%::target}:
+            add 1 to {quest::%{_uuid}%::progress}
+            
+            if {quest::%{_uuid}%::progress} >= {quest::%{_uuid}%::goal}:
+                set {_rewardMult} to {quest::%{_uuid}%::multiplier}
+                
+                ## Mint logic
+                set {_maxMineable} to {eco::maxSupply} - {eco::poolGenesis}
+                if {eco::totalMined} >= {_maxMineable}:
+                    send "&c[ServerContract] Max supply reached. No reward." to {_p}
+                else:
+                    set {_reward} to roundTwo(getReward() * {_rewardMult})
+                    if {eco::totalMined} + {_reward} > {_maxMineable}:
+                        set {_reward} to roundTwo({_maxMineable} - {eco::totalMined})
+                    
+                    addBalance({_p}, {_reward})
+                    add {_reward} to {eco::totalMined}
+                    send "&6[ServerContract] &aComplete! &eAwarded &f%{_reward}% SC" to {_p}
+                    play sound "entity.player.levelup" to {_p}
+                
+                delete {quest::%{_uuid}%::action}
+                generateQuest({_p})
+
+on join:
+    if {quest::%uuid of player%::action} is not set:
+        generateQuest(player)
+
+on break:
+    if {quest::%uuid of player%::action} is "mine":
+        advanceQuest(player, "mine", "%type of event-block%")
+
+on consume:
+    if {quest::%uuid of player%::action} is "consume":
+        advanceQuest(player, "consume", "%type of event-item%")
+
+on death of monster:
+    if attacker is a player:
+        if {quest::%uuid of attacker%::action} is "kill":
+            advanceQuest(attacker, "kill", "%type of victim%")
+
+on craft:
+    if {quest::%uuid of player%::action} is "craft":
+        advanceQuest(player, "craft", "%type of event-item%")
+
+on fish:
+    if {quest::%uuid of player%::action} is "fish":
+        if "%state%" is "CAUGHT_FISH":
+            advanceQuest(player, "fish", "any")
+
+
+##==========================================
+## P2P SMART CONTRACTS & JURY ESCROW
+##==========================================
+
+command /contract [<text>] [<number>] [<text>]:
+    aliases: /contracts
+    trigger:
+        if arg-1 is "list":
+            send "&6===== Open Contracts ====="
+            set {_found} to false
+            loop numbers from 1 to {eco::contractCount}:
+                if {contract::%loop-number%::status} is "open":
+                    set {_found} to true
+                    set {_c} to {contract::%loop-number%::creatorName}
+                    set {_desc} to {contract::%loop-number%::desc}
+                    set {_rew} to {contract::%loop-number%::reward}
+                    send "&e#%loop-number%: &f%{_c}% &7- '%{_desc}%' &a(%{_rew}% SC)"
+            if {_found} is false:
+                send "&7No open contracts."
+                
+        else if arg-1 is "create":
+            if arg-2 is set and arg-3 is set:
+                if arg-2 <= 0:
+                    send "&4Reward must be positive!"
+                    stop
+                
+                set {_cost} to arg-2 + {eco::validatorFee}
+                if getBalance(player) < {_cost}:
+                    send "&4You need %{_cost}% SC (Reward + %{eco::validatorFee}% SC Validator Fee)"
+                    stop
+                
+                removeBalance(player, {_cost})
+                add 1 to {eco::contractCount}
+                set {_id} to {eco::contractCount}
+                
+                set {contract::%{_id}%::creator} to uuid of player
+                set {contract::%{_id}%::creatorName} to name of player
+                set {contract::%{_id}%::reward} to arg-2
+                set {contract::%{_id}%::desc} to arg-3
+                set {contract::%{_id}%::status} to "open"
+                
+                send "&6[Contract] &aCreated #%{_id}%! &eEscrowed %{_cost}% SC."
+            else:
+                send "&4Usage: /contract create <reward> <description>"
+                
+        else if arg-1 is "claim":
+            set {_id} to arg-2
+            if {contract::%{_id}%::status} is "open":
+                if {contract::%{_id}%::creator} is uuid of player:
+                    send "&4You cannot claim your own contract."
+                    stop
+                set {contract::%{_id}%::worker} to uuid of player
+                set {contract::%{_id}%::workerName} to name of player
+                set {contract::%{_id}%::status} to "in_progress"
+                send "&6[Contract] &aYou claimed #%{_id}%! Type /contract complete %{_id}% when done."
+                
+                set {_creatorUuid} to {contract::%{_id}%::creator}
+                set {_creator} to {_creatorUuid} parsed as offlineplayer
+                if {_creator} is online:
+                    send "&6[Contract] &eYour contract &f#%{_id}% &ehas been claimed by &f%name of player%&e!" to {_creator}
+
+        else if arg-1 is "complete":
+            set {_id} to arg-2
+            if {contract::%{_id}%::status} is "in_progress":
+                if {contract::%{_id}%::worker} is uuid of player:
+                    set {contract::%{_id}%::status} to "pending_approval"
+                    send "&6[Contract] &eYou submitted #%{_id}%. Waiting for creator approval."
+                    
+                    set {_creatorUuid} to {contract::%{_id}%::creator}
+                    set {_creator} to {_creatorUuid} parsed as offlineplayer
+                    if {_creator} is online:
+                        send "&6[Contract] &aWorker finished #%{_id}%! &eType &f/contract approve %{_id}% &eor &f/contract dispute %{_id}%" to {_creator}
+
+        else if arg-1 is "approve":
+            set {_id} to arg-2
+            if {contract::%{_id}%::status} is "pending_approval":
+                if {contract::%{_id}%::creator} is uuid of player:
+                    set {contract::%{_id}%::status} to "finished"
+                    
+                    set {_workerUuid} to {contract::%{_id}%::worker}
+                    set {_worker} to {_workerUuid} parsed as offlineplayer
+                    set {_reward} to {contract::%{_id}%::reward}
+                    
+                    addBalance({_worker}, {_reward})
+                    addBalance(player, {eco::validatorFee}) ## Refund validator fee
+                    
+                    send "&6[Contract] &aApproved! &eRefunded %{eco::validatorFee}% SC validator fee."
+                    if {_worker} is online:
+                        send "&6[Contract] &aYour work on #%{_id}% was approved! &eReceived %{_reward}% SC." to {_worker}
+
+        else if arg-1 is "dispute":
+            set {_id} to arg-2
+            if {contract::%{_id}%::status} is "pending_approval":
+                if {contract::%{_id}%::creator} is uuid of player:
+                    set {contract::%{_id}%::status} to "disputed"
+                    send "&6[Contract] &cDisputed! &eMoved to the Public Jury Board."
+                    broadcast "&6[Jury] &cA new dispute on contract #%{_id}% needs a Validator! (/jury claim %{_id}%)"
+
+        else:
+            send "&6[Contracts] /contract <list|create|claim|complete|approve|dispute> [args]"
+
+command /jury [<text>] [<number>] [<text>]:
+    trigger:
+        if arg-1 is "list":
+            send "&6===== Disputed Contracts ====="
+            set {_found} to false
+            loop numbers from 1 to {eco::contractCount}:
+                if {contract::%loop-number%::status} is "disputed":
+                    set {_found} to true
+                    set {_c} to {contract::%loop-number%::creatorName}
+                    set {_w} to {contract::%loop-number%::workerName}
+                    send "&c#%loop-number%: &f%{_c}% vs %{_w}%"
+            if {_found} is false:
+                send "&7No disputed contracts."
+                
+        else if arg-1 is "claim":
+            set {_id} to arg-2
+            if {contract::%{_id}%::status} is "disputed":
+                if {contract::%{_id}%::creator} is uuid of player:
+                    send "&4You cannot judge your own contract."
+                    stop
+                if {contract::%{_id}%::worker} is uuid of player:
+                    send "&4You cannot judge your own work."
+                    stop
+                    
+                set {contract::%{_id}%::juror} to uuid of player
+                set {contract::%{_id}%::status} to "judging"
+                send "&6[Jury] &aClaimed #%{_id}%! &eInspect the conflict. Vote with: &f/jury vote %{_id}% <worker|buyer>"
+
+        else if arg-1 is "vote":
+            set {_id} to arg-2
+            set {_vote} to arg-3
+            if {contract::%{_id}%::status} is "judging":
+                if {contract::%{_id}%::juror} is uuid of player:
+                    set {_reward} to {contract::%{_id}%::reward}
+                    set {_workerUuid} to {contract::%{_id}%::worker}
+                    set {_worker} to {_workerUuid} parsed as offlineplayer
+                    
+                    if {_vote} is "worker":
+                        addBalance({_worker}, {_reward})
+                        send "&6[Jury] &aYou ruled in favor of the Worker! They received %{_reward}% SC."
+                    else if {_vote} is "buyer":
+                        recycleFee({_reward})
+                        send "&6[Jury] &cYou ruled in favor of the Buyer! The %{_reward}% SC was seized and recycled."
+                    else:
+                        send "&4Usage: /jury vote <id> <worker|buyer>"
+                        stop
+                        
+                    set {contract::%{_id}%::status} to "resolved"
+                    addBalance(player, {eco::validatorFee})
+                    send "&6[Jury] &eYou received your %{eco::validatorFee}% SC Validator Fee."
+
+##==========================================
+## P2P AND AMM COMMANDS
+##==========================================
+
+command /pay [<player>] [<number>]:
+    trigger:
+        if arg-1 is set, and arg-2 is set:
+            transferCoins(player, arg-1, arg-2)
+        else:
+            send "&4Usage: /pay <player> <amount>"
+
+command /swap [<text>] [<number>]:
+    trigger:
+        if arg-1 is "emerald":
+            swapEmeraldForCoin(player, arg-2)
+        else if arg-1 is "coin":
+            swapCoinForEmerald(player, arg-2)
+        else:
+            send "&4Usage: /swap <emerald|coin> <amount>"
+
+##==========================================
+## INFO COMMANDS
+##==========================================
+
+command /balance [<offlineplayer>]:
+    aliases: /bal, /wallet
+    trigger:
+        if arg-1 is set:
+            set {_target} to arg-1
+            set {_targetUuid} to uuid of {_target}
+            if {balance::%{_targetUuid}%} is not set:
+                set {balance::%{_targetUuid}%} to 0
+            send "&6[ServerCoin] &f%{_target}%&e's balance: &f%roundTwo({balance::%{_targetUuid}%})%"
+        else:
+            send "&6[ServerCoin] &eYour balance: &f%roundTwo(getBalance(player))%"
+
+command /eco:
+    trigger:
+        set {_maxMineable} to {eco::maxSupply} - {eco::poolGenesis}
+        set {_reward} to roundTwo(getReward())
+        set {_remaining} to {_maxMineable} - {eco::totalMined}
+        set {_pctMined} to roundTwo({eco::totalMined} / {_maxMineable} * 100)
+
+        send "&6===== ServerCoin Economy v2 ====="
+        send "&eUnmined Pool: &f%round({_remaining})% / %{_maxMineable}%"
+        send "&eNext Quest Base Payout: &f%{_reward}% &7(halves every %{eco::halvingInterval}%)"
+        send "&eTransfer Fee: &f%{eco::transferFee}%%%"
+        send "&eYour Balance: &f%roundTwo(getBalance(player))%"
+        send "&6===== AMM Pool ====="
+        send "&ePool Coins: &f%round({pool::coin})%"
+        send "&ePool Emeralds: &f%round({pool::emerald})%"
+        send "&ePrice: &f%getPrice()% &7coin/emerald"
+        send "&eSwap Fee: &f%{eco::swapFee}%%%"
+
+command /supply:
+    trigger:
+        set {_maxMineable} to {eco::maxSupply} - {eco::poolGenesis}
+        set {_remaining} to {_maxMineable} - {eco::totalMined}
+        send "&6[Supply] &eTotal: %{eco::maxSupply}% | Minable: %{_maxMineable}% | Generated: %round({eco::totalMined})% | Remaining Pool: %round({_remaining})%"
+
+##==========================================
+## MARKET TRADING (SMART CONTRACTS)
+##==========================================
+
+function executeItemTrade(buyer: player, seller: offlineplayer, i: item, price: object) :: boolean:
+    if {_price} is a number:
+        set {_bal} to getBalance({_buyer})
+        if {_bal} < {_price}:
+            send "&4Insufficient balance to buy this item. You need &f%{_price}% SC" to {_buyer}
+            return false
+        
+        if {_buyer} doesn't have enough space for {_i}:
+            send "&4You do not have enough inventory space!" to {_buyer}
+            return false
+            
+        set {_fee} to roundTwo({_price} * {eco::transferFee} / 100)
+        set {_received} to roundTwo({_price} - {_fee})
+        
+        removeBalance({_buyer}, {_price})
+        addBalance({_seller}, {_received})
+        give {_i} to {_buyer}
+        recycleFee({_fee})
+        
+        send "&6[Trade] &eBought &f%type of {_i}% &efor &f%{_price}% SC" to {_buyer}
+        if {_seller} is online:
+            send "&6[Trade] &eYour &f%type of {_i}% &ewas sold to &f%{_buyer}% &efor &f%{_received}% SC &7(Fee: %{_fee}%)" to {_seller}
+            
+        return true
+
+    else if {_price} is an item:
+        set {_buyerItem} to {_price}
+        
+        if {_buyer} doesn't have enough space for {_i}:
+            send "&4You do not have enough inventory space!" to {_buyer}
+            return false
+            
+        if {_seller} is online:
+            set {_sellerPlayer} to {_seller} parsed as player
+            if {_sellerPlayer} doesn't have enough space for {_buyerItem}:
+                send "&4The seller does not have enough inventory space!" to {_buyer}
+                return false
+                
+            give {_i} to {_buyer}
+            give {_buyerItem} to {_sellerPlayer}
+            
+            send "&6[Trade] &eSwapped your &f%type of {_buyerItem}% &efor &f%type of {_i}%" to {_buyer}
+            send "&6[Trade] &eSwapped your &f%type of {_i}% &efor &f%type of {_buyerItem}%" to {_sellerPlayer}
+            return true
+        else:
+            send "&4Seller is offline! Cannot complete item swap." to {_buyer}
+            return false
+
+## Global Asynchronous Market
+command /market [<text>] [<number>]:
+    trigger:
+        if arg-1 is "sell":
+            if arg-2 is not set or arg-2 <= 0:
+                send "&4Usage: /market sell <price>"
+                stop
+            if player's tool is air:
+                send "&4You must hold an item to sell!"
+                stop
+            
+            set {_price} to arg-2
+            set {_item} to player's tool
+            set player's tool to air
+            
+            add 1 to {market::count}
+            set {_id} to {market::count}
+            set {market::list::%{_id}%::seller} to uuid of player
+            set {market::list::%{_id}%::sellerName} to name of player
+            set {market::list::%{_id}%::item} to {_item}
+            set {market::list::%{_id}%::price} to {_price}
+            
+            add {_id} to {market::active::*}
+            send "&6[Market] &eListed &f%type of {_item}% &efor &f%{_price}% SC &e(ID: #%{_id}%)"
+            
+        else if arg-1 is "cancel":
+            if arg-2 is not set:
+                send "&4Usage: /market cancel <id>"
+                stop
+            set {_id} to arg-2
+            if {market::active::*} contains {_id}:
+                if {market::list::%{_id}%::seller} is uuid of player:
+                    remove {_id} from {market::active::*}
+                    give {market::list::%{_id}%::item} to player
+                    delete {market::list::%{_id}%::*}
+                    send "&6[Market] &eListing #%{_id}% cancelled. Item returned."
+                else:
+                    send "&4You do not own this listing!"
+            else:
+                send "&4Listing not found."
+                
+        else if arg-1 is "buy":
+            if arg-2 is not set:
+                send "&4Usage: /market buy <id>"
+                stop
+            set {_id} to arg-2
+            if {market::active::*} contains {_id}:
+                if {market::list::%{_id}%::seller} is uuid of player:
+                    send "&4You cannot buy your own item! Use /market cancel %{_id}%"
+                    stop
+                    
+                set {_sellerUuid} to {market::list::%{_id}%::seller}
+                set {_seller} to {_sellerUuid} parsed as offlineplayer
+                set {_item} to {market::list::%{_id}%::item}
+                set {_price} to {market::list::%{_id}%::price}
+                
+                if executeItemTrade(player, {_seller}, {_item}, {_price}) is true:
+                    remove {_id} from {market::active::*}
+                    delete {market::list::%{_id}%::*}
+            else:
+                send "&4Listing not found."
+                
+        else if arg-1 is "browse":
+            send "&6===== Global Market ====="
+            if size of {market::active::*} is 0:
+                send "&7No items currently listed."
+            else:
+                loop {market::active::*}:
+                    set {_id} to loop-value
+                    set {_seller} to {market::list::%{_id}%::sellerName}
+                    set {_itemType} to type of {market::list::%{_id}%::item}
+                    set {_price} to {market::list::%{_id}%::price}
+                    send "&e#%{_id}% &f%{_itemType}% &eby &f%{_seller}% &e- &a%{_price}% SC"
+            send "&7Use &f/market buy <id> &7to purchase."
+        else:
+            send "&6[Market Commands] &e/market <browse|sell|cancel|buy> [price|id]"
+
+## Real-Time Synchronous P2P Escrow
+command /ptrade [<text>] [<player>] [<number>]:
+    aliases: /pt
+    trigger:
+        if arg-1 is "offer":
+            if arg-2 is not set or arg-3 is not set or arg-3 <= 0:
+                send "&4Usage: /ptrade offer <player> <price>"
+                stop
+            if arg-2 is player:
+                send "&4You cannot trade with yourself."
+                stop
+            if player's tool is air:
+                send "&4You must hold an item to offer!"
+                stop
+            
+            set {_targetUuid} to uuid of arg-2
+            if {trade::%{_targetUuid}%::active} is true:
+                send "&4That player already has a pending trade. Try again later."
+                stop
+                
+            set {_item} to player's tool
+            set player's tool to air
+            
+            set {trade::%{_targetUuid}%::active} to true
+            set {trade::%{_targetUuid}%::seller} to player
+            set {trade::%{_targetUuid}%::item} to {_item}
+            set {trade::%{_targetUuid}%::price} to arg-3
+            
+            send "&6[Trade] &eOffered &f%amount of {_item}% %type of {_item}% &eto &f%arg-2% &efor &f%arg-3% SC"
+            send "&6[Trade] &f%player% &eoffered you &f%amount of {_item}% %type of {_item}% &efor &f%arg-3% SC" to arg-2
+            send "&7Type &a/ptrade accept &7or &c/ptrade deny" to arg-2
+            
+        else if arg-1 is "itemswap":
+            if arg-2 is not set:
+                send "&4Usage: /ptrade itemswap <player>"
+                stop
+            if arg-2 is player:
+                send "&4You cannot trade with yourself."
+                stop
+            if player's tool is air:
+                send "&4You must hold an item to offer!"
+                stop
+            
+            set {_targetUuid} to uuid of arg-2
+            if {trade::%{_targetUuid}%::active} is true:
+                send "&4That player already has a pending trade. Try again later."
+                stop
+                
+            set {_item} to player's tool
+            set player's tool to air
+            
+            set {trade::%{_targetUuid}%::active} to true
+            set {trade::%{_targetUuid}%::seller} to player
+            set {trade::%{_targetUuid}%::item} to {_item}
+            set {trade::%{_targetUuid}%::type} to "item"
+            
+            send "&6[Trade] &eRequested an item exchange with &f%arg-2% &eoffering &f%amount of {_item}% %type of {_item}%&e."
+            send "&6[Trade] &f%player% &ewants to swap their &f%amount of {_item}% %type of {_item}% &efor your held item." to arg-2
+            send "&7Hold the item you wish to trade and type &a/ptrade accept &7or &c/ptrade deny" to arg-2
+            
+        else if arg-1 is "accept":
+            set {_uuid} to uuid of player
+            if {trade::%{_uuid}%::active} is true:
+                set {_seller} to {trade::%{_uuid}%::seller}
+                set {_item} to {trade::%{_uuid}%::item}
+                
+                if {trade::%{_uuid}%::type} is "item":
+                    if player's tool is air:
+                        send "&4You must hold an item to exchange!"
+                        stop
+                    set {_buyerItem} to player's tool
+                    set player's tool to air
+                    
+                    if executeItemTrade(player, {_seller}, {_item}, {_buyerItem}) is false:
+                        send "&6[Trade] &cTrade failed. Returning items."
+                        give {_buyerItem} to player
+                        if {_seller} is online:
+                            give {_item} to {_seller}
+                            send "&6[Trade] &cTrade failed. Your item was returned." to {_seller}
+                        else:
+                            drop {_item} at player's location
+                    delete {trade::%{_uuid}%::*}
+                    stop
+                    
+                set {_price} to {trade::%{_uuid}%::price}
+                
+                if executeItemTrade(player, {_seller}, {_item}, {_price}) is false:
+                    send "&6[Trade] &cTrade failed. Returning item to seller."
+                    if {_seller} is online:
+                        give {_item} to {_seller}
+                        send "&6[Trade] &cTrade failed. Your item was returned." to {_seller}
+                    else:
+                        drop {_item} at player's location
+                
+                delete {trade::%{_uuid}%::*}
+            else:
+                send "&4You have no pending trades."
+                
+        else if arg-1 is "deny":
+            set {_uuid} to uuid of player
+            if {trade::%{_uuid}%::active} is true:
+                set {_seller} to {trade::%{_uuid}%::seller}
+                set {_item} to {trade::%{_uuid}%::item}
+                
+                if {_seller} is online:
+                    give {_item} to {_seller}
+                    send "&6[Trade] &c%player% denied the trade. Item returned." to {_seller}
+                else:
+                    drop {_item} at player's location
+                
+                send "&6[Trade] &eTrade denied."
+                delete {trade::%{_uuid}%::*}
+            else:
+                send "&4You have no pending trades."
+        else:
+            send "&6[Trade] &e/ptrade <offer|itemswap|accept|deny> [player] [price]"
+
+## If the seller disconnects while waiting for an answer, refund them instantly!
+on quit:
+    loop all players:
+        set {_uuid} to uuid of loop-player
+        if {trade::%{_uuid}%::active} is true:
+            if {trade::%{_uuid}%::seller} is player:
+                give {trade::%{_uuid}%::item} to player
+                send "&6[Trade] &cTrade cancelled because the seller left." to loop-player
+                delete {trade::%{_uuid}%::*}
