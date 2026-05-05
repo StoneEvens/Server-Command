@@ -1,0 +1,260 @@
+##--------------------------------##
+##   Server Economy Constants     ##
+## This File Contains All The Constant/Default Variables For The Economy
+##--------------------------------##
+
+##--------------------------------##
+##     Caliberation Functions     ##
+##--------------------------------##
+
+##Caliberate Economy Defaults
+##Sets static economy configuration. Runtime state ({eco::totalMined}, {eco::contractCount})
+##is preserved if already set so calibration won't wipe progress.
+function caliberateEconomy():
+    set {eco::maxSupply} to 1000000
+    set {eco::poolGenesis} to 500000
+    set {eco::baseReward} to 10
+    set {eco::halvingInterval} to 200000
+    set {eco::transferFee} to 2
+    set {eco::swapFee} to 0.3
+    set {eco::validatorFee} to 2
+    if {eco::totalMined} is not set:
+        set {eco::totalMined} to 0
+    if {eco::contractCount} is not set:
+        set {eco::contractCount} to 0
+    set {eco::initialized} to true
+
+##Caliberate AMM Pool Genesis Seed
+##Only seeds the pool the first time. After genesis the reserves are owned by the market.
+function caliberateAMMPool():
+    if {pool::initialized} is not set:
+        set {pool::coin} to {eco::poolGenesis}
+        set {pool::emerald} to 10000
+        set {pool::initialized} to true
+
+##Caliberate Quest Templates
+##Each template index defines: action, target, goal, multiplier, desc
+function caliberateQuests():
+    set {questTemplate::1::action} to "mine"
+    set {questTemplate::1::target} to "stone"
+    set {questTemplate::1::goal} to 128
+    set {questTemplate::1::multiplier} to 1.5
+    set {questTemplate::1::desc} to "Mine 128 Stone"
+
+    set {questTemplate::2::action} to "consume"
+    set {questTemplate::2::target} to "bread"
+    set {questTemplate::2::goal} to 32
+    set {questTemplate::2::multiplier} to 2.0
+    set {questTemplate::2::desc} to "Eat 32 Bread"
+
+    set {questTemplate::3::action} to "kill"
+    set {questTemplate::3::target} to "zombie"
+    set {questTemplate::3::goal} to 15
+    set {questTemplate::3::multiplier} to 3.0
+    set {questTemplate::3::desc} to "Slay 15 Zombies"
+
+    set {questTemplate::4::action} to "craft"
+    set {questTemplate::4::target} to "torch"
+    set {questTemplate::4::goal} to 64
+    set {questTemplate::4::multiplier} to 1.0
+    set {questTemplate::4::desc} to "Craft 64 Torches"
+
+    set {questTemplate::5::action} to "fish"
+    set {questTemplate::5::target} to "any"
+    set {questTemplate::5::goal} to 5
+    set {questTemplate::5::multiplier} to 4.0
+    set {questTemplate::5::desc} to "Catch 5 Fish"
+
+    set {questTemplate::6::action} to "mine"
+    set {questTemplate::6::target} to "log"
+    set {questTemplate::6::goal} to 64
+    set {questTemplate::6::multiplier} to 2.0
+    set {questTemplate::6::desc} to "Chop 64 Logs"
+
+    set {questTemplate::count} to 6
+
+##Economy Messages
+##Use language tags like {messages::default::economy::...}
+function caliberateEconomyMessages():
+    ##Transfers
+    set {messages::default::economy::transfer::amount_positive} to "&4Amount must be positive!"
+    set {messages::default::economy::transfer::insufficient_balance} to "&4Insufficient balance!"
+    set {messages::default::economy::transfer::sent} to "&eSent &f{1} ServerCoin &eto &f{2} &7(fee: {3})"
+    set {messages::default::economy::transfer::received} to "&eReceived &f{1} ServerCoin &efrom &f{2}"
+
+    ##Swap
+    set {messages::default::economy::swap::not_enough_emeralds} to "&4Not enough emeralds!"
+    set {messages::default::economy::swap::trade_too_small} to "&4Trade too small or too large!"
+    set {messages::default::economy::swap::swapped_em_to_coin} to "&eSwapped &f{1} emeralds &efor &f{2} ServerCoin"
+    set {messages::default::economy::swap::swapped_coin_to_em} to "&eSwapped &f{1} ServerCoin &efor &f{2} emeralds"
+    set {messages::default::economy::swap::price} to "&7Price: {1} coin/em"
+    set {messages::default::economy::swap::trade_invalid} to "&4Trade invalid or too large!"
+    set {messages::default::economy::swap::insufficient_balance} to "&4Insufficient balance!"
+
+    ##Quest
+    set {messages::default::economy::quest::new} to "&6[ServerContract] &eNew Quest: &f{1}"
+    set {messages::default::economy::quest::max_supply} to "&c[ServerContract] Max supply reached. No reward."
+    set {messages::default::economy::quest::complete} to "&6[ServerContract] &aComplete! &eAwarded &f{1} SC"
+
+    ##Contracts
+    set {messages::default::economy::contract::usage} to "&6[Contracts] /contract <list|create|claim|complete|approve|dispute> [args]"
+    set {messages::default::economy::contract::header} to "&6===== Open Contracts ====="
+    set {messages::default::economy::contract::row} to "&e#{1}: &f{2} &7- '{3}' &a({4} SC)"
+    set {messages::default::economy::contract::no_open} to "&7No open contracts."
+    set {messages::default::economy::contract::create_usage} to "&4Usage: /contract create <reward> <description>"
+    set {messages::default::economy::contract::reward_positive} to "&4Reward must be positive!"
+    set {messages::default::economy::contract::need_cost} to "&4You need {1} SC (Reward + {2} SC Validator Fee)"
+    set {messages::default::economy::contract::created} to "&6[Contract] &aCreated #{1}! &eEscrowed {2} SC."
+    set {messages::default::economy::contract::claim_own} to "&4You cannot claim your own contract."
+    set {messages::default::economy::contract::claimed} to "&6[Contract] &aYou claimed #{1}! Type /contract complete {1} when done."
+    set {messages::default::economy::contract::creator_claimed} to "&6[Contract] &eYour contract &f#{1} &ehas been claimed by &f{2}&e!"
+    set {messages::default::economy::contract::submitted} to "&6[Contract] &eYou submitted #{1}. Waiting for creator approval."
+    set {messages::default::economy::contract::worker_finished} to "&6[Contract] &aWorker finished #{1}! &eType &f/contract approve {1} &eor &f/contract dispute {1}"
+    set {messages::default::economy::contract::approved} to "&6[Contract] &aApproved! &eRefunded {1} SC validator fee."
+    set {messages::default::economy::contract::worker_paid} to "&6[Contract] &aYour work on #{1} was approved! &eReceived {2} SC."
+    set {messages::default::economy::contract::disputed} to "&6[Contract] &cDisputed! &eMoved to the Public Jury Board."
+    set {messages::default::economy::contract::dispute_broadcast} to "&6[Jury] &cA new dispute on contract #{1} needs a Validator! (/jury claim {1})"
+
+    ##Jury
+    set {messages::default::economy::jury::usage} to "&6[Jury] /jury <list|claim|vote> [args]"
+    set {messages::default::economy::jury::header} to "&6===== Disputed Contracts ====="
+    set {messages::default::economy::jury::row} to "&c#{1}: &f{2} vs {3}"
+    set {messages::default::economy::jury::no_disputes} to "&7No disputed contracts."
+    set {messages::default::economy::jury::claim_own_contract} to "&4You cannot judge your own contract."
+    set {messages::default::economy::jury::claim_own_work} to "&4You cannot judge your own work."
+    set {messages::default::economy::jury::claimed} to "&6[Jury] &aClaimed #{1}! &eInspect the conflict. Vote with: &f/jury vote {1} <worker|buyer>"
+    set {messages::default::economy::jury::worker_win} to "&6[Jury] &aYou ruled in favor of the Worker! They received {1} SC."
+    set {messages::default::economy::jury::buyer_win} to "&6[Jury] &cYou ruled in favor of the Buyer! The {1} SC was seized and recycled."
+    set {messages::default::economy::jury::vote_usage} to "&4Usage: /jury vote <id> <worker|buyer>"
+    set {messages::default::economy::jury::validator_paid} to "&6[Jury] &eYou received your {1} SC Validator Fee."
+
+    ##Trade
+    set {messages::default::economy::trade::insufficient_balance_buy} to "&4Insufficient balance to buy this item. You need &f{1} SC"
+    set {messages::default::economy::trade::no_space_buyer} to "&4You do not have enough inventory space!"
+    set {messages::default::economy::trade::bought} to "&6[Trade] &eBought &f{1} &efor &f{2} SC"
+    set {messages::default::economy::trade::sold} to "&6[Trade] &eYour &f{1} &ewas sold to &f{2} &efor &f{3} SC &7(Fee: {4})"
+    set {messages::default::economy::trade::buy_no_space} to "&4You do not have enough inventory space!"
+    set {messages::default::economy::trade::seller_no_space} to "&4The seller does not have enough inventory space!"
+    set {messages::default::economy::trade::item_swapped_buyer} to "&6[Trade] &eSwapped your &f{1} &efor &f{2}"
+    set {messages::default::economy::trade::item_swapped_seller} to "&6[Trade] &eSwapped your &f{1} &efor &f{2}"
+    set {messages::default::economy::trade::seller_offline_swap} to "&4Seller is offline! Cannot complete item swap."
+
+    ##Market
+    set {messages::default::economy::market::usage} to "&6[Market Commands] &e/market <browse|sell|cancel|buy> [price|id]"
+    set {messages::default::economy::market::sell_usage} to "&4Usage: /market sell <price>"
+    set {messages::default::economy::market::sell_no_item} to "&4You must hold an item to sell!"
+    set {messages::default::economy::market::listed} to "&6[Market] &eListed &f{1} &efor &f{2} SC &e(ID: #{3})"
+    set {messages::default::economy::market::cancel_usage} to "&4Usage: /market cancel <id>"
+    set {messages::default::economy::market::cancelled} to "&6[Market] &eListing #{1} cancelled. Item returned."
+    set {messages::default::economy::market::not_owner} to "&4You do not own this listing!"
+    set {messages::default::economy::market::not_found} to "&4Listing not found."
+    set {messages::default::economy::market::buy_usage} to "&4Usage: /market buy <id>"
+    set {messages::default::economy::market::buy_own} to "&4You cannot buy your own item! Use /market cancel {1}"
+    set {messages::default::economy::market::header} to "&6===== Global Market ====="
+    set {messages::default::economy::market::empty} to "&7No items currently listed."
+    set {messages::default::economy::market::row} to "&e#{1} &f{2} &eby &f{3} &e- &a{4} SC"
+    set {messages::default::economy::market::footer} to "&7Use &f/market buy <id> &7to purchase."
+
+    ##P2P Trade
+    set {messages::default::economy::ptrade::usage} to "&6[Trade] &e/ptrade <offer|itemswap|accept|deny> [player] [price]"
+    set {messages::default::economy::ptrade::offer_usage} to "&4Usage: /ptrade offer <player> <price>"
+    set {messages::default::economy::ptrade::item_swap_usage} to "&4Usage: /ptrade itemswap <player>"
+    set {messages::default::economy::ptrade::cannot_self} to "&4You cannot trade with yourself."
+    set {messages::default::economy::ptrade::must_hold_item} to "&4You must hold an item to offer!"
+    set {messages::default::economy::ptrade::trade_pending} to "&4That player already has a pending trade. Try again later."
+    set {messages::default::economy::ptrade::offer_sent} to "&6[Trade] &eOffered &f{1} &efor &f{2} SC"
+    set {messages::default::economy::ptrade::offer_received} to "&6[Trade] &f{1} &eoffered you &f{2} &efor &f{3} SC"
+    set {messages::default::economy::ptrade::item_swap_sent} to "&6[Trade] &eRequested an item exchange with &f{1} &eoffering &f{2} {3}&e."
+    set {messages::default::economy::ptrade::item_swap_received} to "&6[Trade] &f{1} &ewants to swap their &f{2} {3} &efor your held item."
+    set {messages::default::economy::ptrade::offer_hint} to "&7Type &a/ptrade accept &7or &c/ptrade deny"
+    set {messages::default::economy::ptrade::hold_item_accept} to "&7Hold the item you wish to trade and type &a/ptrade accept &7or &c/ptrade deny"
+    set {messages::default::economy::ptrade::must_hold_exchange} to "&4You must hold an item to exchange!"
+    set {messages::default::economy::ptrade::trade_failed_return} to "&6[Trade] &cTrade failed. Returning items."
+    set {messages::default::economy::ptrade::trade_failed_return_seller} to "&6[Trade] &cTrade failed. Your item was returned."
+    set {messages::default::economy::ptrade::trade_failed_return_item} to "&6[Trade] &cTrade failed. Returning item to seller."
+    set {messages::default::economy::ptrade::trade_denied} to "&6[Trade] &eTrade denied."
+    set {messages::default::economy::ptrade::no_pending} to "&4You have no pending trades."
+    set {messages::default::economy::ptrade::seller_left} to "&6[Trade] &cTrade cancelled because the seller left."
+
+    ##Info
+    set {messages::default::economy::balance::target} to "&6[ServerCoin] &f{1}&e's balance: &f{2}"
+    set {messages::default::economy::balance::self} to "&6[ServerCoin] &eYour balance: &f{1}"
+
+    ##Info Panels
+    set {messages::default::economy::info::header} to "&6===== ServerCoin Economy v2 ====="
+    set {messages::default::economy::info::unmined} to "&eUnmined Pool: &f{1} / {2}"
+    set {messages::default::economy::info::next_reward} to "&eNext Quest Base Payout: &f{1} &7(halves every {2})"
+    set {messages::default::economy::info::transfer_fee} to "&eTransfer Fee: &f{1}"
+    set {messages::default::economy::info::your_balance} to "&eYour Balance: &f{1}"
+    set {messages::default::economy::info::amm_header} to "&6===== AMM Pool ====="
+    set {messages::default::economy::info::pool_coins} to "&ePool Coins: &f{1}"
+    set {messages::default::economy::info::pool_emeralds} to "&ePool Emeralds: &f{1}"
+    set {messages::default::economy::info::price} to "&ePrice: &f{1} &7coin/emerald"
+    set {messages::default::economy::info::swap_fee} to "&eSwap Fee: &f{1}"
+    set {messages::default::economy::supply::line} to "&6[Supply] &eTotal: {1} | Minable: {2} | Generated: {3} | Remaining Pool: {4}"
+##Caliberate Economy GUI Labels and Lores
+function caliberateEconomyGUILabels():
+    ##Main Economy Menu
+    set {labels::default::economy::title} to "Economy"
+    set {labels::default::economy::transfer::name} to "&6Transfer Coins"
+    set {lores::default::economy::transfer} to "&7Send coins to another player||&eClick to begin transfer"
+    set {labels::default::economy::swap::name} to "&aSwap Emerald ↔ Coin"
+    set {lores::default::economy::swap} to "&7Trade emeralds for coins or vice versa||&eClick to swap"
+    set {labels::default::economy::contracts::name} to "&dContracts"
+    set {lores::default::economy::contracts} to "&7Manage contracts||&eClick to view contracts"
+    set {labels::default::economy::jury::name} to "&cJury"
+    set {lores::default::economy::jury} to "&7Handle disputes||&eClick to manage jury"
+    set {labels::default::economy::market::name} to "&eMarket"
+    set {lores::default::economy::market} to "&7Global marketplace||&eClick to access market"
+    set {labels::default::economy::ptrade::name} to "&bP2P Trading"
+    set {lores::default::economy::ptrade} to "&7Direct player-to-player trades||&eClick to trade"
+    set {labels::default::economy::balance::name} to "&fWallet"
+    set {lores::default::economy::balance} to "&7Check your balance||&eClick to view"
+    set {labels::default::economy::info::name} to "&6Economy Info"
+    set {lores::default::economy::info} to "&7System statistics||&eClick to view"
+    set {labels::default::economy::supply::name} to "&7Supply Info"
+    set {lores::default::economy::supply} to "&7Coin supply details||&eClick to view"
+
+    ##Contract Sub-Menu
+    set {labels::default::economy::contracts::submenu::title} to "Contracts"
+    set {labels::default::economy::contracts::submenu::list::name} to "&6List Contracts"
+    set {lores::default::economy::contracts::submenu::list} to "&7View all contracts||&eClick to list"
+    set {labels::default::economy::contracts::submenu::create::name} to "&aCreate Contract"
+    set {lores::default::economy::contracts::submenu::create} to "&7Create a new contract||&eClick to create"
+    set {labels::default::economy::contracts::submenu::claim::name} to "&eClaim Contract"
+    set {lores::default::economy::contracts::submenu::claim} to "&7Claim a contract||&eClick to claim"
+    set {labels::default::economy::contracts::submenu::complete::name} to "&bComplete Contract"
+    set {lores::default::economy::contracts::submenu::complete} to "&7Mark contract as done||&eClick to complete"
+    set {labels::default::economy::contracts::submenu::approve::name} to "&2Approve Contract"
+    set {lores::default::economy::contracts::submenu::approve} to "&7Approve completion||&eClick to approve"
+    set {labels::default::economy::contracts::submenu::dispute::name} to "&cDispute Contract"
+    set {lores::default::economy::contracts::submenu::dispute} to "&7Report a dispute||&eClick to dispute"
+
+    ##Jury Sub-Menu
+    set {labels::default::economy::jury::submenu::title} to "Jury"
+    set {labels::default::economy::jury::submenu::list::name} to "&6List Disputes"
+    set {lores::default::economy::jury::submenu::list} to "&7View pending disputes||&eClick to list"
+    set {labels::default::economy::jury::submenu::vote::name} to "&cVote on Dispute"
+    set {lores::default::economy::jury::submenu::vote} to "&7Cast your vote||&eClick to vote"
+
+    ##Market Sub-Menu
+    set {labels::default::economy::market::submenu::title} to "Market"
+    set {labels::default::economy::market::submenu::sell::name} to "&eSell Item"
+    set {lores::default::economy::market::submenu::sell} to "&7List item for sale||&eClick to sell"
+    set {labels::default::economy::market::submenu::cancel::name} to "&cCancel Listing"
+    set {lores::default::economy::market::submenu::cancel} to "&7Remove from market||&eClick to cancel"
+    set {labels::default::economy::market::submenu::buy::name} to "&aBuy Item"
+    set {lores::default::economy::market::submenu::buy} to "&7Purchase an item||&eClick to buy"
+    set {labels::default::economy::market::submenu::browse::name} to "&6Browse Market"
+    set {lores::default::economy::market::submenu::browse} to "&7See available items||&eClick to browse"
+
+    ##P2P Trade Sub-Menu
+    set {labels::default::economy::ptrade::submenu::title} to "P2P Trading"
+    set {labels::default::economy::ptrade::submenu::offer::name} to "&6Make Offer"
+    set {lores::default::economy::ptrade::submenu::offer} to "&7Offer coins for items||&eClick to offer"
+    set {labels::default::economy::ptrade::submenu::itemswap::name} to "&aItem Swap"
+    set {lores::default::economy::ptrade::submenu::itemswap} to "&7Exchange items||&eClick to swap"
+    set {labels::default::economy::ptrade::submenu::accept::name} to "&2Accept Trade"
+    set {lores::default::economy::ptrade::submenu::accept} to "&7Accept pending trade||&eClick to accept"
+    set {labels::default::economy::ptrade::submenu::deny::name} to "&cDeny Trade"
+    set {lores::default::economy::ptrade::submenu::deny} to "&7Reject pending trade||&eClick to deny"

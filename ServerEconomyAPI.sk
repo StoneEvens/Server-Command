@@ -1,0 +1,1003 @@
+##--------------------------------##
+##      Server Economy API        ##
+## ServerCoin Economy System v2.0 - Proof of State
+## Cryptocurrency-like economy with AMM & P2P Contracts
+## These Are The Core Functions That Power The Economy Features
+##--------------------------------##
+## Features:
+##   - Auto-tracking Server Quests (minting rewards)
+##   - Peer-to-peer Contracts with escrow
+##   - Decentralized Jury Duty for disputes
+##   - Fee recycling (circular economy, no DAO)
+##   - AMM (Automated Market Maker) for Emerald <-> Coin swap
+##--------------------------------##
+
+##--------------------------------##
+##       Utility Functions        ##
+##--------------------------------##
+
+function roundTwo(n: number) :: number:
+    return round({_n} * 100) / 100
+
+##Current mining reward with halving applied
+function getReward() :: number:
+    set {_reward} to {eco::baseReward}
+    set {_mined} to {eco::totalMined}
+    set {_interval} to {eco::halvingInterval}
+    while {_mined} >= {_interval}:
+        set {_reward} to {_reward} / 2
+        remove {_interval} from {_mined}
+    if {_reward} < 0.01:
+        return 0
+    return {_reward}
+
+function getBalance(p: player) :: number:
+    set {_uuid} to uuid of {_p}
+    if {balance::%{_uuid}%} is not set:
+        set {balance::%{_uuid}%} to 0
+    return {balance::%{_uuid}%}
+
+function addBalance(p: player, amount: number):
+    set {_uuid} to uuid of {_p}
+    if {balance::%{_uuid}%} is not set:
+        set {balance::%{_uuid}%} to 0
+    add {_amount} to {balance::%{_uuid}%}
+
+function removeBalance(p: player, amount: number):
+    set {_uuid} to uuid of {_p}
+    if {balance::%{_uuid}%} is not set:
+        set {balance::%{_uuid}%} to 0
+    remove {_amount} from {balance::%{_uuid}%}
+
+function getPrice() :: number:
+    if {pool::emerald} <= 0:
+        return 0
+    return roundTwo({pool::coin} / {pool::emerald})
+
+##Recycles fee back into the Unmined Pool by reducing {eco::totalMined}
+function recycleFee(amount: number):
+    remove {_amount} from {eco::totalMined}
+    if {eco::totalMined} < 0:
+        set {eco::totalMined} to 0
+
+##--------------------------------##
+##   P2P Transfers and AMM Swaps  ##
+##--------------------------------##
+
+function transferCoins(sender: player, receiver: player, amount: number):
+    if {_amount} <= 0:
+        send {messages::default::economy::transfer::amount_positive} to {_sender}
+        stop
+
+    set {_senderBal} to getBalance({_sender})
+    if {_senderBal} < {_amount}:
+        send {messages::default::economy::transfer::insufficient_balance} to {_sender}
+        stop
+
+    set {_fee} to roundTwo({_amount} * {eco::transferFee} / 100)
+    set {_received} to roundTwo({_amount} - {_fee})
+
+    removeBalance({_sender}, {_amount})
+    addBalance({_receiver}, {_received})
+
+    ##Circular Economy: Network fees return to Unmined Pool
+    recycleFee({_fee})
+
+    set {_message} to {messages::default::economy::transfer::sent}
+    replace all "{1}" with {_received} in {_message}
+    replace all "{2}" with name of {_receiver} in {_message}
+    replace all "{3}" with {_fee} in {_message}
+    send {_message} to {_sender}
+
+    set {_message} to {messages::default::economy::transfer::received}
+    replace all "{1}" with {_received} in {_message}
+    replace all "{2}" with name of {_sender} in {_message}
+    send {_message} to {_receiver}
+
+function swapEmeraldForCoin(p: player, emeraldAmount: number):
+    if {_emeraldAmount} <= 0:
+        stop
+
+    set {_held} to amount of emeralds in {_p}'s inventory
+    if {_held} < {_emeraldAmount}:
+        send {messages::default::economy::swap::not_enough_emeralds} to {_p}
+        stop
+
+    set {_effectiveIn} to {_emeraldAmount} * (1 - {eco::swapFee} / 100)
+    set {_fee} to {_emeraldAmount} * ({eco::swapFee} / 100)
+    set {_k} to {pool::coin} * {pool::emerald}
+    set {_newEmeraldReserve} to {pool::emerald} + {_effectiveIn}
+    set {_coinsOut} to roundTwo({pool::coin} - {_k} / {_newEmeraldReserve})
+
+    if {_coinsOut} <= 0 or {_coinsOut} > {pool::coin} * 0.9:
+        set {_message} to {messages::default::economy::swap::trade_too_small}
+        send {_message} to {_p}
+        stop
+
+    remove {_emeraldAmount} of emerald from {_p}'s inventory
+    addBalance({_p}, {_coinsOut})
+
+    add {_emeraldAmount} to {pool::emerald}
+    remove {_coinsOut} from {pool::coin}
+
+    set {_message} to {messages::default::economy::swap::swapped_em_to_coin}
+    replace all "{1}" with {_emeraldAmount} in {_message}
+    replace all "{2}" with {_coinsOut} in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::swap::price}
+    replace all "{1}" with getPrice() in {_message}
+    send {_message} to {_p}
+
+function swapCoinForEmerald(p: player, coinAmount: number):
+    if {_coinAmount} <= 0:
+        stop
+
+    set {_bal} to getBalance({_p})
+    if {_bal} < {_coinAmount}:
+        send {messages::default::economy::swap::insufficient_balance} to {_p}
+        stop
+
+    set {_fee} to {_coinAmount} * ({eco::swapFee} / 100)
+    set {_effectiveIn} to {_coinAmount} - {_fee}
+
+    set {_k} to {pool::coin} * {pool::emerald}
+    set {_newCoinReserve} to {pool::coin} + {_effectiveIn}
+    set {_emeraldsOut} to floor({pool::emerald} - {_k} / {_newCoinReserve})
+
+    if {_emeraldsOut} <= 0 or {_emeraldsOut} > {pool::emerald} * 0.9:
+        set {_message} to {messages::default::economy::swap::trade_invalid}
+        send {_message} to {_p}
+        stop
+
+    removeBalance({_p}, {_coinAmount})
+    give {_emeraldsOut} of emerald to {_p}
+
+    add {_coinAmount} to {pool::coin}
+    remove {_emeraldsOut} from {pool::emerald}
+
+    ##The fee part goes back to the Unmined Pool instead of the AMM
+    remove {_fee} from {pool::coin}
+    recycleFee({_fee})
+
+    set {_message} to {messages::default::economy::swap::swapped_coin_to_em}
+    replace all "{1}" with roundTwo({_coinAmount}) in {_message}
+    replace all "{2}" with {_emeraldsOut} in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::swap::price}
+    replace all "{1}" with getPrice() in {_message}
+    send {_message} to {_p}
+
+##--------------------------------##
+## Server Quests (Auto Minting)   ##
+##--------------------------------##
+
+##Generate A Random Quest For A Player
+##Uses templates from ServerEconomyConstants
+function generateQuest(p: player):
+    set {_uuid} to uuid of {_p}
+    set {_count} to {questTemplate::count}
+    if {_count} is not set:
+        set {_count} to 1
+    set {_rand} to a random integer between 1 and {_count}
+
+    set {quest::%{_uuid}%::action} to {questTemplate::%{_rand}%::action}
+    set {quest::%{_uuid}%::target} to {questTemplate::%{_rand}%::target}
+    set {quest::%{_uuid}%::goal} to {questTemplate::%{_rand}%::goal}
+    set {quest::%{_uuid}%::multiplier} to {questTemplate::%{_rand}%::multiplier}
+    set {quest::%{_uuid}%::desc} to {questTemplate::%{_rand}%::desc}
+    set {quest::%{_uuid}%::progress} to 0
+
+    set {_message} to {messages::default::economy::quest::new}
+    replace all "{1}" with {quest::%{_uuid}%::desc} in {_message}
+    send {_message} to {_p}
+
+##Advance A Quest's Progress And Mint Reward On Completion
+function advanceQuest(p: player, action: text, detail: text):
+    set {_uuid} to uuid of {_p}
+
+    if {quest::%{_uuid}%::action} is not set:
+        stop
+
+    if {quest::%{_uuid}%::action} is {_action}:
+        if {quest::%{_uuid}%::target} is "any" or {_detail} contains {quest::%{_uuid}%::target}:
+            add 1 to {quest::%{_uuid}%::progress}
+
+            if {quest::%{_uuid}%::progress} >= {quest::%{_uuid}%::goal}:
+                set {_rewardMult} to {quest::%{_uuid}%::multiplier}
+
+                ##Mint logic
+                set {_maxMineable} to {eco::maxSupply} - {eco::poolGenesis}
+                if {eco::totalMined} >= {_maxMineable}:
+                    send {messages::default::economy::quest::max_supply} to {_p}
+                else:
+                    set {_reward} to roundTwo(getReward() * {_rewardMult})
+                    if {eco::totalMined} + {_reward} > {_maxMineable}:
+                        set {_reward} to roundTwo({_maxMineable} - {eco::totalMined})
+
+                    addBalance({_p}, {_reward})
+                    add {_reward} to {eco::totalMined}
+                    set {_message} to {messages::default::economy::quest::complete}
+                    replace all "{1}" with {_reward} in {_message}
+                    send {_message} to {_p}
+                    play sound "entity.player.levelup" to {_p}
+
+                delete {quest::%{_uuid}%::action}
+                generateQuest({_p})
+
+##--------------------------------##
+##  P2P Smart Contracts & Jury    ##
+##--------------------------------##
+
+##Contract Command Entry Point
+##Dispatcher for all /contract subcommands
+##Dependent on listContracts(), createContract(), claimContract(),
+##completeContract(), approveContract() and disputeContract()
+function contractEntryPoint(p: player, action: text, idArg: number, descArg: text):
+    if {_action} is "list":
+        listContracts({_p})
+    else if {_action} is "create":
+        createContract({_p}, {_idArg}, {_descArg})
+    else if {_action} is "claim":
+        claimContract({_p}, {_idArg})
+    else if {_action} is "complete":
+        completeContract({_p}, {_idArg})
+    else if {_action} is "approve":
+        approveContract({_p}, {_idArg})
+    else if {_action} is "dispute":
+        disputeContract({_p}, {_idArg})
+    else:
+        send {messages::default::economy::contract::usage} to {_p}
+
+##List Open Contracts
+##Helper function for contractEntryPoint()
+function listContracts(p: player):
+    send {messages::default::economy::contract::header} to {_p}
+    set {_found} to false
+    loop numbers from 1 to {eco::contractCount}:
+        if {contract::%loop-number%::status} is "open":
+            set {_found} to true
+            set {_c} to {contract::%loop-number%::creatorName}
+            set {_desc} to {contract::%loop-number%::desc}
+            set {_rew} to {contract::%loop-number%::reward}
+            set {_message} to {messages::default::economy::contract::row}
+            replace all "{1}" with loop-number in {_message}
+            replace all "{2}" with {_c} in {_message}
+            replace all "{3}" with {_desc} in {_message}
+            replace all "{4}" with {_rew} in {_message}
+            send {_message} to {_p}
+    if {_found} is false:
+        send {messages::default::economy::contract::no_open} to {_p}
+
+##Create A New Contract
+##Helper function for contractEntryPoint()
+function createContract(p: player, reward: number, desc: text):
+    if {_reward} is not set or {_desc} is not set:
+        send {messages::default::economy::contract::create_usage} to {_p}
+        stop
+    if {_reward} <= 0:
+        send {messages::default::economy::contract::reward_positive} to {_p}
+        stop
+
+    set {_cost} to {_reward} + {eco::validatorFee}
+    if getBalance({_p}) < {_cost}:
+        set {_message} to {messages::default::economy::contract::need_cost}
+        replace all "{1}" with {_cost} in {_message}
+        replace all "{2}" with {eco::validatorFee} in {_message}
+        send {_message} to {_p}
+        stop
+
+    removeBalance({_p}, {_cost})
+    add 1 to {eco::contractCount}
+    set {_id} to {eco::contractCount}
+
+    set {contract::%{_id}%::creator} to uuid of {_p}
+    set {contract::%{_id}%::creatorName} to name of {_p}
+    set {contract::%{_id}%::reward} to {_reward}
+    set {contract::%{_id}%::desc} to {_desc}
+    set {contract::%{_id}%::status} to "open"
+
+    set {_message} to {messages::default::economy::contract::created}
+    replace all "{1}" with {_id} in {_message}
+    replace all "{2}" with {_cost} in {_message}
+    send {_message} to {_p}
+
+##Claim An Open Contract
+##Helper function for contractEntryPoint()
+function claimContract(p: player, id: number):
+    if {contract::%{_id}%::status} is "open":
+        if {contract::%{_id}%::creator} is uuid of {_p}:
+            send {messages::default::economy::contract::claim_own} to {_p}
+            stop
+        set {contract::%{_id}%::worker} to uuid of {_p}
+        set {contract::%{_id}%::workerName} to name of {_p}
+        set {contract::%{_id}%::status} to "in_progress"
+        set {_message} to {messages::default::economy::contract::claimed}
+        replace all "{1}" with {_id} in {_message}
+        send {_message} to {_p}
+
+        set {_creatorUuid} to {contract::%{_id}%::creator}
+        set {_creator} to {_creatorUuid} parsed as offlineplayer
+        if {_creator} is online:
+            set {_message} to {messages::default::economy::contract::creator_claimed}
+            replace all "{1}" with {_id} in {_message}
+            replace all "{2}" with name of {_p} in {_message}
+            send {_message} to {_creator}
+
+##Submit A Contract For Approval
+##Helper function for contractEntryPoint()
+function completeContract(p: player, id: number):
+    if {contract::%{_id}%::status} is "in_progress":
+        if {contract::%{_id}%::worker} is uuid of {_p}:
+            set {contract::%{_id}%::status} to "pending_approval"
+            send {messages::default::economy::contract::submitted} to {_p}
+
+            set {_creatorUuid} to {contract::%{_id}%::creator}
+            set {_creator} to {_creatorUuid} parsed as offlineplayer
+            if {_creator} is online:
+                set {_message} to {messages::default::economy::contract::worker_finished}
+                replace all "{1}" with {_id} in {_message}
+                send {_message} to {_creator}
+
+##Approve Submitted Work And Pay The Worker
+##Helper function for contractEntryPoint()
+function approveContract(p: player, id: number):
+    if {contract::%{_id}%::status} is "pending_approval":
+        if {contract::%{_id}%::creator} is uuid of {_p}:
+            set {contract::%{_id}%::status} to "finished"
+
+            set {_workerUuid} to {contract::%{_id}%::worker}
+            set {_worker} to {_workerUuid} parsed as offlineplayer
+            set {_reward} to {contract::%{_id}%::reward}
+
+            addBalance({_worker}, {_reward})
+            addBalance({_p}, {eco::validatorFee}) ##Refund validator fee
+
+            set {_message} to {messages::default::economy::contract::approved}
+            replace all "{1}" with {eco::validatorFee} in {_message}
+            send {_message} to {_p}
+            if {_worker} is online:
+                set {_message} to {messages::default::economy::contract::worker_paid}
+                replace all "{1}" with {_id} in {_message}
+                replace all "{2}" with {_reward} in {_message}
+                send {_message} to {_worker}
+
+##Dispute Submitted Work (escalates to jury)
+##Helper function for contractEntryPoint()
+function disputeContract(p: player, id: number):
+    if {contract::%{_id}%::status} is "pending_approval":
+        if {contract::%{_id}%::creator} is uuid of {_p}:
+            set {contract::%{_id}%::status} to "disputed"
+            send {messages::default::economy::contract::disputed} to {_p}
+            set {_message} to {messages::default::economy::contract::dispute_broadcast}
+            replace all "{1}" with {_id} in {_message}
+            broadcast {_message}
+
+##Jury Command Entry Point
+##Dispatcher for all /jury subcommands
+##Dependent on listDisputes(), claimDispute() and voteJury()
+function juryEntryPoint(p: player, action: text, idArg: number, voteArg: text):
+    if {_action} is "list":
+        listDisputes({_p})
+    else if {_action} is "claim":
+        claimDispute({_p}, {_idArg})
+    else if {_action} is "vote":
+        voteJury({_p}, {_idArg}, {_voteArg})
+    else:
+        send {messages::default::economy::jury::usage} to {_p}
+
+##List Disputed Contracts
+##Helper function for juryEntryPoint()
+function listDisputes(p: player):
+    send {messages::default::economy::jury::header} to {_p}
+    set {_found} to false
+    loop numbers from 1 to {eco::contractCount}:
+        if {contract::%loop-number%::status} is "disputed":
+            set {_found} to true
+            set {_c} to {contract::%loop-number%::creatorName}
+            set {_w} to {contract::%loop-number%::workerName}
+            set {_message} to {messages::default::economy::jury::row}
+            replace all "{1}" with loop-number in {_message}
+            replace all "{2}" with {_c} in {_message}
+            replace all "{3}" with {_w} in {_message}
+            send {_message} to {_p}
+    if {_found} is false:
+        send {messages::default::economy::jury::no_disputes} to {_p}
+
+##Claim A Dispute As Juror
+##Helper function for juryEntryPoint()
+function claimDispute(p: player, id: number):
+    if {contract::%{_id}%::status} is "disputed":
+        if {contract::%{_id}%::creator} is uuid of {_p}:
+            send {messages::default::economy::jury::claim_own_contract} to {_p}
+            stop
+        if {contract::%{_id}%::worker} is uuid of {_p}:
+            send {messages::default::economy::jury::claim_own_work} to {_p}
+            stop
+
+        set {contract::%{_id}%::juror} to uuid of {_p}
+        set {contract::%{_id}%::status} to "judging"
+        set {_message} to {messages::default::economy::jury::claimed}
+        replace all "{1}" with {_id} in {_message}
+        send {_message} to {_p}
+
+##Cast A Jury Vote
+##Helper function for juryEntryPoint()
+function voteJury(p: player, id: number, vote: text):
+    if {contract::%{_id}%::status} is "judging":
+        if {contract::%{_id}%::juror} is uuid of {_p}:
+            set {_reward} to {contract::%{_id}%::reward}
+            set {_workerUuid} to {contract::%{_id}%::worker}
+            set {_worker} to {_workerUuid} parsed as offlineplayer
+
+            if {_vote} is "worker":
+                addBalance({_worker}, {_reward})
+                set {_message} to {messages::default::economy::jury::worker_win}
+                replace all "{1}" with {_reward} in {_message}
+                send {_message} to {_p}
+            else if {_vote} is "buyer":
+                recycleFee({_reward})
+                set {_message} to {messages::default::economy::jury::buyer_win}
+                replace all "{1}" with {_reward} in {_message}
+                send {_message} to {_p}
+            else:
+                send {messages::default::economy::jury::vote_usage} to {_p}
+                stop
+
+            set {contract::%{_id}%::status} to "resolved"
+            addBalance({_p}, {eco::validatorFee})
+            set {_message} to {messages::default::economy::jury::validator_paid}
+            replace all "{1}" with {eco::validatorFee} in {_message}
+            send {_message} to {_p}
+
+##--------------------------------##
+##   Market Trading Functions     ##
+##--------------------------------##
+
+##Execute An Item-For-Coin Or Item-For-Item Trade
+##Used by both /market and /ptrade flows
+function executeItemTrade(buyer: player, seller: offlineplayer, i: item, price: object) :: boolean:
+    if {_price} is a number:
+        set {_bal} to getBalance({_buyer})
+        if {_bal} < {_price}:
+            set {_message} to {messages::default::economy::trade::insufficient_balance_buy}
+            replace all "{1}" with {_price} in {_message}
+            send {_message} to {_buyer}
+            return false
+
+        if {_buyer} doesn't have enough space for {_i}:
+            send {messages::default::economy::trade::no_space_buyer} to {_buyer}
+            return false
+
+        set {_fee} to roundTwo({_price} * {eco::transferFee} / 100)
+        set {_received} to roundTwo({_price} - {_fee})
+
+        removeBalance({_buyer}, {_price})
+        addBalance({_seller}, {_received})
+        give {_i} to {_buyer}
+        recycleFee({_fee})
+
+        set {_message} to {messages::default::economy::trade::bought}
+        replace all "{1}" with type of {_i} in {_message}
+        replace all "{2}" with {_price} in {_message}
+        send {_message} to {_buyer}
+        if {_seller} is online:
+            set {_message} to {messages::default::economy::trade::sold}
+            replace all "{1}" with type of {_i} in {_message}
+            replace all "{2}" with {_buyer} in {_message}
+            replace all "{3}" with {_received} in {_message}
+            replace all "{4}" with {_fee} in {_message}
+            send {_message} to {_seller}
+
+        return true
+
+    else if {_price} is an item:
+        set {_buyerItem} to {_price}
+
+        if {_buyer} doesn't have enough space for {_i}:
+            send {messages::default::economy::trade::no_space_buyer} to {_buyer}
+            return false
+
+        if {_seller} is online:
+            set {_sellerPlayer} to {_seller} parsed as player
+            if {_sellerPlayer} doesn't have enough space for {_buyerItem}:
+                send {messages::default::economy::trade::seller_no_space} to {_buyer}
+                return false
+
+            give {_i} to {_buyer}
+            give {_buyerItem} to {_sellerPlayer}
+
+            set {_message} to {messages::default::economy::trade::item_swapped_buyer}
+            replace all "{1}" with type of {_buyerItem} in {_message}
+            replace all "{2}" with type of {_i} in {_message}
+            send {_message} to {_buyer}
+
+            set {_message} to {messages::default::economy::trade::item_swapped_seller}
+            replace all "{1}" with type of {_i} in {_message}
+            replace all "{2}" with type of {_buyerItem} in {_message}
+            send {_message} to {_sellerPlayer}
+            return true
+        else:
+            send {messages::default::economy::trade::seller_offline_swap} to {_buyer}
+            return false
+
+##Market Command Entry Point
+##Dispatcher for all /market subcommands
+##Dependent on marketSell(), marketCancel(), marketBuy() and marketBrowse()
+function marketEntryPoint(p: player, action: text, arg: number):
+    if {_action} is "sell":
+        marketSell({_p}, {_arg})
+    else if {_action} is "cancel":
+        marketCancel({_p}, {_arg})
+    else if {_action} is "buy":
+        marketBuy({_p}, {_arg})
+    else if {_action} is "browse":
+        marketBrowse({_p})
+    else:
+        send {messages::default::economy::market::usage} to {_p}
+
+##List An Item For Sale
+##Helper function for marketEntryPoint()
+function marketSell(p: player, price: number):
+    if {_price} is not set or {_price} <= 0:
+        send {messages::default::economy::market::sell_usage} to {_p}
+        stop
+    if {_p}'s tool is air:
+        send {messages::default::economy::market::sell_no_item} to {_p}
+        stop
+
+    set {_item} to {_p}'s tool
+    set {_p}'s tool to air
+
+    add 1 to {market::count}
+    set {_id} to {market::count}
+    set {market::list::%{_id}%::seller} to uuid of {_p}
+    set {market::list::%{_id}%::sellerName} to name of {_p}
+    set {market::list::%{_id}%::item} to {_item}
+    set {market::list::%{_id}%::price} to {_price}
+
+    add {_id} to {market::active::*}
+    set {_message} to {messages::default::economy::market::listed}
+    replace all "{1}" with type of {_item} in {_message}
+    replace all "{2}" with {_price} in {_message}
+    replace all "{3}" with {_id} in {_message}
+    send {_message} to {_p}
+
+##Cancel A Market Listing
+##Helper function for marketEntryPoint()
+function marketCancel(p: player, id: number):
+    if {_id} is not set:
+        send {messages::default::economy::market::cancel_usage} to {_p}
+        stop
+    if {market::active::*} contains {_id}:
+        if {market::list::%{_id}%::seller} is uuid of {_p}:
+            remove {_id} from {market::active::*}
+            give {market::list::%{_id}%::item} to {_p}
+            delete {market::list::%{_id}%::*}
+            send {messages::default::economy::market::cancelled} to {_p}
+        else:
+            send {messages::default::economy::market::not_owner} to {_p}
+    else:
+        send {messages::default::economy::market::not_found} to {_p}
+
+##Buy A Market Listing
+##Helper function for marketEntryPoint()
+function marketBuy(p: player, id: number):
+    if {_id} is not set:
+        send {messages::default::economy::market::buy_usage} to {_p}
+        stop
+    if {market::active::*} contains {_id}:
+        if {market::list::%{_id}%::seller} is uuid of {_p}:
+            set {_message} to {messages::default::economy::market::buy_own}
+            replace all "{1}" with {_id} in {_message}
+            send {_message} to {_p}
+            stop
+
+        set {_sellerUuid} to {market::list::%{_id}%::seller}
+        set {_seller} to {_sellerUuid} parsed as offlineplayer
+        set {_item} to {market::list::%{_id}%::item}
+        set {_price} to {market::list::%{_id}%::price}
+
+        if executeItemTrade({_p}, {_seller}, {_item}, {_price}) is true:
+            remove {_id} from {market::active::*}
+            delete {market::list::%{_id}%::*}
+    else:
+        send {messages::default::economy::market::not_found} to {_p}
+
+##Browse Active Market Listings
+##Helper function for marketEntryPoint()
+function marketBrowse(p: player):
+    send {messages::default::economy::market::header} to {_p}
+    if size of {market::active::*} is 0:
+        send {messages::default::economy::market::empty} to {_p}
+    else:
+        loop {market::active::*}:
+            set {_id} to loop-value
+            set {_seller} to {market::list::%{_id}%::sellerName}
+            set {_itemType} to type of {market::list::%{_id}%::item}
+            set {_price} to {market::list::%{_id}%::price}
+            set {_message} to {messages::default::economy::market::row}
+            replace all "{1}" with {_id} in {_message}
+            replace all "{2}" with {_itemType} in {_message}
+            replace all "{3}" with {_seller} in {_message}
+            replace all "{4}" with {_price} in {_message}
+            send {_message} to {_p}
+    send {messages::default::economy::market::footer} to {_p}
+
+##P2P Trade Command Entry Point
+##Dispatcher for all /ptrade subcommands
+##Dependent on ptradeOffer(), ptradeItemswap(), ptradeAccept() and ptradeDeny()
+function ptradeEntryPoint(p: player, action: text, target: player, price: number):
+    if {_action} is "offer":
+        ptradeOffer({_p}, {_target}, {_price})
+    else if {_action} is "itemswap":
+        ptradeItemswap({_p}, {_target})
+    else if {_action} is "accept":
+        ptradeAccept({_p})
+    else if {_action} is "deny":
+        ptradeDeny({_p})
+    else:
+        send {messages::default::economy::ptrade::usage} to {_p}
+
+##Offer A Coin-For-Item Trade
+##Helper function for ptradeEntryPoint()
+function ptradeOffer(p: player, target: player, price: number):
+    if {_target} is not set or {_price} is not set or {_price} <= 0:
+        send {messages::default::economy::ptrade::offer_usage} to {_p}
+        stop
+    if {_target} is {_p}:
+        send {messages::default::economy::ptrade::cannot_self} to {_p}
+        stop
+    if {_p}'s tool is air:
+        send {messages::default::economy::ptrade::must_hold_item} to {_p}
+        stop
+
+    set {_targetUuid} to uuid of {_target}
+    if {trade::%{_targetUuid}%::active} is true:
+        send {messages::default::economy::ptrade::trade_pending} to {_p}
+        stop
+
+    set {_item} to {_p}'s tool
+    set {_p}'s tool to air
+
+    set {trade::%{_targetUuid}%::active} to true
+    set {trade::%{_targetUuid}%::seller} to {_p}
+    set {trade::%{_targetUuid}%::item} to {_item}
+    set {trade::%{_targetUuid}%::price} to {_price}
+
+    set {_message} to {messages::default::economy::ptrade::offer_sent}
+    replace all "{1}" with amount of {_item} in {_message}
+    replace all "{2}" with {_price} in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::ptrade::offer_received}
+    replace all "{1}" with name of {_p} in {_message}
+    replace all "{2}" with amount of {_item} in {_message}
+    replace all "{3}" with {_price} in {_message}
+    send {_message} to {_target}
+    send {messages::default::economy::ptrade::offer_hint} to {_target}
+
+##Offer An Item-For-Item Swap
+##Helper function for ptradeEntryPoint()
+function ptradeItemswap(p: player, target: player):
+    if {_target} is not set:
+        send {messages::default::economy::ptrade::item_swap_usage} to {_p}
+        stop
+    if {_target} is {_p}:
+        send {messages::default::economy::ptrade::cannot_self} to {_p}
+        stop
+    if {_p}'s tool is air:
+        send {messages::default::economy::ptrade::must_hold_item} to {_p}
+        stop
+
+    set {_targetUuid} to uuid of {_target}
+    if {trade::%{_targetUuid}%::active} is true:
+        send {messages::default::economy::ptrade::trade_pending} to {_p}
+        stop
+
+    set {_item} to {_p}'s tool
+    set {_p}'s tool to air
+
+    set {trade::%{_targetUuid}%::active} to true
+    set {trade::%{_targetUuid}%::seller} to {_p}
+    set {trade::%{_targetUuid}%::item} to {_item}
+    set {trade::%{_targetUuid}%::type} to "item"
+
+    set {_message} to {messages::default::economy::ptrade::item_swap_sent}
+    replace all "{1}" with name of {_target} in {_message}
+    replace all "{2}" with amount of {_item} in {_message}
+    replace all "{3}" with type of {_item} in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::ptrade::item_swap_received}
+    replace all "{1}" with name of {_p} in {_message}
+    replace all "{2}" with amount of {_item} in {_message}
+    replace all "{3}" with type of {_item} in {_message}
+    send {_message} to {_target}
+    send {messages::default::economy::ptrade::hold_item_accept} to {_target}
+
+##Accept A Pending P2P Trade
+##Helper function for ptradeEntryPoint()
+function ptradeAccept(p: player):
+    set {_uuid} to uuid of {_p}
+    if {trade::%{_uuid}%::active} is true:
+        set {_seller} to {trade::%{_uuid}%::seller}
+        set {_item} to {trade::%{_uuid}%::item}
+
+        if {trade::%{_uuid}%::type} is "item":
+            if {_p}'s tool is air:
+                send {messages::default::economy::ptrade::must_hold_exchange} to {_p}
+                stop
+            set {_buyerItem} to {_p}'s tool
+            set {_p}'s tool to air
+
+            if executeItemTrade({_p}, {_seller}, {_item}, {_buyerItem}) is false:
+                send {messages::default::economy::ptrade::trade_failed_return} to {_p}
+                give {_buyerItem} to {_p}
+                if {_seller} is online:
+                    give {_item} to {_seller}
+                    send {messages::default::economy::ptrade::trade_failed_return_seller} to {_seller}
+                else:
+                    drop {_item} at {_p}'s location
+            delete {trade::%{_uuid}%::*}
+            stop
+
+        set {_price} to {trade::%{_uuid}%::price}
+
+        if executeItemTrade({_p}, {_seller}, {_item}, {_price}) is false:
+            send {messages::default::economy::ptrade::trade_failed_return_item} to {_p}
+            if {_seller} is online:
+                give {_item} to {_seller}
+                send {messages::default::economy::ptrade::trade_failed_return_seller} to {_seller}
+            else:
+                drop {_item} at {_p}'s location
+
+        delete {trade::%{_uuid}%::*}
+    else:
+        send {messages::default::economy::ptrade::no_pending} to {_p}
+
+##Deny A Pending P2P Trade
+##Helper function for ptradeEntryPoint()
+function ptradeDeny(p: player):
+    set {_uuid} to uuid of {_p}
+    if {trade::%{_uuid}%::active} is true:
+        set {_seller} to {trade::%{_uuid}%::seller}
+        set {_item} to {trade::%{_uuid}%::item}
+
+        if {_seller} is online:
+            give {_item} to {_seller}
+            send {messages::default::economy::ptrade::trade_failed_return_seller} to {_seller}
+        else:
+            drop {_item} at {_p}'s location
+
+        send {messages::default::economy::ptrade::trade_denied} to {_p}
+        delete {trade::%{_uuid}%::*}
+    else:
+        send {messages::default::economy::ptrade::no_pending} to {_p}
+
+##Refund A Trade Where The Seller Has Disconnected
+##Used by the on quit handler in ServerEconomyExecutables
+function refundTradesOnQuit(quitter: player):
+    set {_quitterName} to "%{_quitter}%"
+    loop all players:
+        set {_uuid} to uuid of loop-player
+        if {trade::%{_uuid}%::active} is true:
+            if "%{trade::%{_uuid}%::seller}%" is {_quitterName}:
+                drop {trade::%{_uuid}%::item} at {_quitter}'s location
+                send {messages::default::economy::ptrade::seller_left} to loop-player
+                delete {trade::%{_uuid}%::*}
+
+##--------------------------------##
+##         Info Helpers           ##
+##--------------------------------##
+
+##Send A Player's Or Target's Balance
+function showBalance(p: player, target: offlineplayer):
+    if {_target} is set:
+        set {_targetUuid} to uuid of {_target}
+        if {balance::%{_targetUuid}%} is not set:
+            set {balance::%{_targetUuid}%} to 0
+        set {_message} to {messages::default::economy::balance::target}
+        replace all "{1}" with {_target} in {_message}
+        replace all "{2}" with roundTwo({balance::%{_targetUuid}%}) in {_message}
+        send {_message} to {_p}
+    else:
+        set {_message} to {messages::default::economy::balance::self}
+        replace all "{1}" with roundTwo(getBalance({_p})) in {_message}
+        send {_message} to {_p}
+
+##Send The Full Economy Summary
+function showEconomy(p: player):
+    set {_maxMineable} to {eco::maxSupply} - {eco::poolGenesis}
+    set {_reward} to roundTwo(getReward())
+    set {_remaining} to {_maxMineable} - {eco::totalMined}
+    set {_pctMined} to roundTwo({eco::totalMined} / {_maxMineable} * 100)
+
+    send {messages::default::economy::info::header} to {_p}
+    set {_message} to {messages::default::economy::info::unmined}
+    replace all "{1}" with round({_remaining}) in {_message}
+    replace all "{2}" with {_maxMineable} in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::info::next_reward}
+    replace all "{1}" with {_reward} in {_message}
+    replace all "{2}" with {eco::halvingInterval} in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::info::transfer_fee}
+    replace all "{1}" with {eco::transferFee} in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::info::your_balance}
+    replace all "{1}" with roundTwo(getBalance({_p})) in {_message}
+    send {_message} to {_p}
+
+    send {messages::default::economy::info::amm_header} to {_p}
+
+    set {_message} to {messages::default::economy::info::pool_coins}
+    replace all "{1}" with round({pool::coin}) in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::info::pool_emeralds}
+    replace all "{1}" with round({pool::emerald}) in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::info::price}
+    replace all "{1}" with getPrice() in {_message}
+    send {_message} to {_p}
+
+    set {_message} to {messages::default::economy::info::swap_fee}
+    replace all "{1}" with {eco::swapFee} in {_message}
+    send {_message} to {_p}
+
+##Send The Supply Summary
+function showSupply(p: player):
+    set {_maxMineable} to {eco::maxSupply} - {eco::poolGenesis}
+    set {_remaining} to {_maxMineable} - {eco::totalMined}
+    set {_message} to {messages::default::economy::supply::line}
+    replace all "{1}" with {eco::maxSupply} in {_message}
+    replace all "{2}" with {_maxMineable} in {_message}
+    replace all "{3}" with round({eco::totalMined}) in {_message}
+    replace all "{4}" with round({_remaining}) in {_message}
+    send {_message} to {_p}
+
+##Economy GUI - Main Menu
+function openEconomyMenu(p: player, lang: text):
+    set metadata tag "Economy" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::economy::title}%"
+    set slot 0 of metadata tag "Economy" of {_p} to gold ingot named "%{labels::%{_lang}%::economy::transfer::name}%" with lore "%{lores::%{_lang}%::economy::transfer}%"
+    set slot 4 of metadata tag "Economy" of {_p} to emerald named "%{labels::%{_lang}%::economy::swap::name}%" with lore "%{lores::%{_lang}%::economy::swap}%"
+    set slot 8 of metadata tag "Economy" of {_p} to enchanted book named "%{labels::%{_lang}%::economy::contracts::name}%" with lore "%{lores::%{_lang}%::economy::contracts}%"
+    set slot 9 of metadata tag "Economy" of {_p} to mace named "%{labels::%{_lang}%::economy::jury::name}%" with lore "%{lores::%{_lang}%::economy::jury}%"
+    set slot 13 of metadata tag "Economy" of {_p} to chest named "%{labels::%{_lang}%::economy::market::name}%" with lore "%{lores::%{_lang}%::economy::market}%"
+    set slot 17 of metadata tag "Economy" of {_p} to shulker box named "%{labels::%{_lang}%::economy::ptrade::name}%" with lore "%{lores::%{_lang}%::economy::ptrade}%"
+    set slot 18 of metadata tag "Economy" of {_p} to bundle named "%{labels::%{_lang}%::economy::balance::name}%" with lore "%{lores::%{_lang}%::economy::balance}%"
+    set slot 22 of metadata tag "Economy" of {_p} to diamond named "%{labels::%{_lang}%::economy::info::name}%" with lore "%{lores::%{_lang}%::economy::info}%"
+    set slot 26 of metadata tag "Economy" of {_p} to barrel named "%{labels::%{_lang}%::economy::supply::name}%" with lore "%{lores::%{_lang}%::economy::supply}%"
+    open (metadata tag "Economy" of {_p}) to {_p}
+
+##Economy GUI - Main Menu Click Handler
+function handleEconomyMenuClick(p: player, slotObj: integer):
+    if {_slotObj} is 0:
+        close {_p}'s inventory
+        set {status::%uuid of {_p}%} to "transfer"
+        set {_gui} to a new anvil gui named "%{labels::%{language::%uuid of {_p}%}%::economy::transfer::name}%" with default text "player amount"
+        open anvil gui {_gui} to {_p}
+    else if {_slotObj} is 4:
+        close {_p}'s inventory
+        set {status::%uuid of {_p}%} to "swap"
+        set {_gui} to a new anvil gui named "%{labels::%{language::%uuid of {_p}%}%::economy::swap::name}%" with default text "emerald/coin amount"
+        open anvil gui {_gui} to {_p}
+    else if {_slotObj} is 8:
+        openEconomyContractsMenu({_p}, {language::%uuid of {_p}%})
+    else if {_slotObj} is 9:
+        openEconomyJuryMenu({_p}, {language::%uuid of {_p}%})
+    else if {_slotObj} is 13:
+        openEconomyMarketMenu({_p}, {language::%uuid of {_p}%})
+    else if {_slotObj} is 17:
+        openEconomyPTradeMenu({_p}, {language::%uuid of {_p}%})
+    else if {_slotObj} is 18:
+        close {_p}'s inventory
+        showBalance({_p}, null)
+    else if {_slotObj} is 22:
+        close {_p}'s inventory
+        showEconomy({_p})
+    else if {_slotObj} is 26:
+        close {_p}'s inventory
+        showSupply({_p})
+
+##Economy GUI - Contracts Sub-Menu
+function openEconomyContractsMenu(p: player, lang: text):
+    set metadata tag "EconomyContracts" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::economy::contracts::submenu::title}%"
+    set slot 2 of metadata tag "EconomyContracts" of {_p} to paper named "%{labels::%{_lang}%::economy::contracts::submenu::list::name}%" with lore "%{lores::%{_lang}%::economy::contracts::submenu::list}%"
+    set slot 6 of metadata tag "EconomyContracts" of {_p} to writable_book named "%{labels::%{_lang}%::economy::contracts::submenu::create::name}%" with lore "%{lores::%{_lang}%::economy::contracts::submenu::create}%"
+    set slot 11 of metadata tag "EconomyContracts" of {_p} to diamond named "%{labels::%{_lang}%::economy::contracts::submenu::claim::name}%" with lore "%{lores::%{_lang}%::economy::contracts::submenu::claim}%"
+    set slot 15 of metadata tag "EconomyContracts" of {_p} to emerald named "%{labels::%{_lang}%::economy::contracts::submenu::complete::name}%" with lore "%{lores::%{_lang}%::economy::contracts::submenu::complete}%"
+    set slot 20 of metadata tag "EconomyContracts" of {_p} to green concrete named "%{labels::%{_lang}%::economy::contracts::submenu::approve::name}%" with lore "%{lores::%{_lang}%::economy::contracts::submenu::approve}%"
+    set slot 24 of metadata tag "EconomyContracts" of {_p} to red concrete named "%{labels::%{_lang}%::economy::contracts::submenu::dispute::name}%" with lore "%{lores::%{_lang}%::economy::contracts::submenu::dispute}%"
+    open (metadata tag "EconomyContracts" of {_p}) to {_p}
+
+##Economy GUI - Contracts Sub-Menu Click Handler
+function handleEconomyContractsMenuClick(p: player, slotObj: integer):
+    if {_slotObj} is 2:
+        close {_p}'s inventory
+        contractEntryPoint({_p}, "list", null, null)
+    else if {_slotObj} is 6:
+        close {_p}'s inventory
+        contractEntryPoint({_p}, "create", null, null)
+    else if {_slotObj} is 11:
+        close {_p}'s inventory
+        contractEntryPoint({_p}, "claim", null, null)
+    else if {_slotObj} is 15:
+        close {_p}'s inventory
+        contractEntryPoint({_p}, "complete", null, null)
+    else if {_slotObj} is 20:
+        close {_p}'s inventory
+        contractEntryPoint({_p}, "approve", null, null)
+    else if {_slotObj} is 24:
+        close {_p}'s inventory
+        contractEntryPoint({_p}, "dispute", null, null)
+
+##Economy GUI - Jury Sub-Menu
+function openEconomyJuryMenu(p: player, lang: text):
+    set metadata tag "EconomyJury" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::economy::jury::submenu::title}%"
+    set slot 11 of metadata tag "EconomyJury" of {_p} to paper named "%{labels::%{_lang}%::economy::jury::submenu::list::name}%" with lore "%{lores::%{_lang}%::economy::jury::submenu::list}%"
+    set slot 15 of metadata tag "EconomyJury" of {_p} to redstone block named "%{labels::%{_lang}%::economy::jury::submenu::vote::name}%" with lore "%{lores::%{_lang}%::economy::jury::submenu::vote}%"
+    open (metadata tag "EconomyJury" of {_p}) to {_p}
+
+##Economy GUI - Jury Sub-Menu Click Handler
+function handleEconomyJuryMenuClick(p: player, slotObj: integer):
+    if {_slotObj} is 11:
+        close {_p}'s inventory
+        juryEntryPoint({_p}, "list", null, null)
+    else if {_slotObj} is 15:
+        close {_p}'s inventory
+        juryEntryPoint({_p}, "vote", null, null)
+
+##Economy GUI - Market Sub-Menu
+function openEconomyMarketMenu(p: player, lang: text):
+    set metadata tag "EconomyMarket" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::economy::market::submenu::title}%"
+    set slot 2 of metadata tag "EconomyMarket" of {_p} to gold ingot named "%{labels::%{_lang}%::economy::market::submenu::sell::name}%" with lore "%{lores::%{_lang}%::economy::market::submenu::sell}%"
+    set slot 6 of metadata tag "EconomyMarket" of {_p} to barrier named "%{labels::%{_lang}%::economy::market::submenu::cancel::name}%" with lore "%{lores::%{_lang}%::economy::market::submenu::cancel}%"
+    set slot 11 of metadata tag "EconomyMarket" of {_p} to diamond named "%{labels::%{_lang}%::economy::market::submenu::buy::name}%" with lore "%{lores::%{_lang}%::economy::market::submenu::buy}%"
+    set slot 15 of metadata tag "EconomyMarket" of {_p} to spyglass named "%{labels::%{_lang}%::economy::market::submenu::browse::name}%" with lore "%{lores::%{_lang}%::economy::market::submenu::browse}%"
+    open (metadata tag "EconomyMarket" of {_p}) to {_p}
+
+##Economy GUI - Market Sub-Menu Click Handler
+function handleEconomyMarketMenuClick(p: player, slotObj: integer):
+    if {_slotObj} is 2:
+        close {_p}'s inventory
+        marketEntryPoint({_p}, "sell", null)
+    else if {_slotObj} is 6:
+        close {_p}'s inventory
+        marketEntryPoint({_p}, "cancel", null)
+    else if {_slotObj} is 11:
+        close {_p}'s inventory
+        marketEntryPoint({_p}, "buy", null)
+    else if {_slotObj} is 15:
+        close {_p}'s inventory
+        marketEntryPoint({_p}, "browse", null)
+
+##Economy GUI - P2P Trade Sub-Menu
+function openEconomyPTradeMenu(p: player, lang: text):
+    set metadata tag "EconomyPTrade" of {_p} to chest inventory with 3 rows named "%{labels::%{_lang}%::economy::ptrade::submenu::title}%"
+    set slot 2 of metadata tag "EconomyPTrade" of {_p} to gold block named "%{labels::%{_lang}%::economy::ptrade::submenu::offer::name}%" with lore "%{lores::%{_lang}%::economy::ptrade::submenu::offer}%"
+    set slot 6 of metadata tag "EconomyPTrade" of {_p} to dispenser named "%{labels::%{_lang}%::economy::ptrade::submenu::itemswap::name}%" with lore "%{lores::%{_lang}%::economy::ptrade::submenu::itemswap}%"
+    set slot 11 of metadata tag "EconomyPTrade" of {_p} to green concrete named "%{labels::%{_lang}%::economy::ptrade::submenu::accept::name}%" with lore "%{lores::%{_lang}%::economy::ptrade::submenu::accept}%"
+    set slot 15 of metadata tag "EconomyPTrade" of {_p} to red concrete named "%{labels::%{_lang}%::economy::ptrade::submenu::deny::name}%" with lore "%{lores::%{_lang}%::economy::ptrade::submenu::deny}%"
+    open (metadata tag "EconomyPTrade" of {_p}) to {_p}
+
+##Economy GUI - P2P Trade Sub-Menu Click Handler
+function handleEconomyPTradeMenuClick(p: player, slotObj: integer):
+    if {_slotObj} is 2:
+        close {_p}'s inventory
+        ptradeEntryPoint({_p}, "offer", null, null)
+    else if {_slotObj} is 6:
+        close {_p}'s inventory
+        ptradeEntryPoint({_p}, "itemswap", null, null)
+    else if {_slotObj} is 11:
+        close {_p}'s inventory
+        ptradeEntryPoint({_p}, "accept", null, null)
+    else if {_slotObj} is 15:
+        close {_p}'s inventory
+        ptradeEntryPoint({_p}, "deny", null, null)

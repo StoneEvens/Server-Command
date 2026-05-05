@@ -1,0 +1,160 @@
+##--------------------------------##
+##  Economy Command Entry Points  ##
+## This file defines the actual economy commands to be executed
+## Also contains event handlers where economy variables are dynamically updated
+##--------------------------------##
+
+##--------------------------------##
+##         Initialization         ##
+##--------------------------------##
+
+on load:
+    caliberateEconomy()
+    caliberateAMMPool()
+    caliberateQuests()
+    caliberateEconomyMessages()
+    caliberateEconomyGUILabels()
+
+##--------------------------------##
+##     Administrative Commands    ##
+##--------------------------------##
+
+##Calibrate Economy Defaults
+command /caliberateEconomy:
+    trigger:
+        caliberateEconomy()
+
+##Calibrate AMM Pool Genesis
+command /caliberateAMMPool:
+    trigger:
+        caliberateAMMPool()
+
+##Calibrate Quest Templates
+command /caliberateQuests:
+    trigger:
+        caliberateQuests()
+
+##--------------------------------##
+##        Player Commands         ##
+##--------------------------------##
+
+##P2P Coin Transfer
+command /pay [<player>] [<number>]:
+    trigger:
+        if arg-1 is set and arg-2 is set:
+            transferCoins(player, arg-1, arg-2)
+        else:
+            send "&4Usage: /pay <player> <amount>"
+
+##AMM Swap (emerald <-> coin)
+command /swap [<text>] [<number>]:
+    trigger:
+        if arg-1 is "emerald":
+            swapEmeraldForCoin(player, arg-2)
+        else if arg-1 is "coin":
+            swapCoinForEmerald(player, arg-2)
+        else:
+            send "&4Usage: /swap <emerald|coin> <amount>"
+
+##Contract Commands Entry Point
+command /contract [<text>] [<number>] [<text>]:
+    trigger:
+        contractEntryPoint(player, arg-1, arg-2, arg-3)
+
+##Jury Commands Entry Point
+command /jury [<text>] [<number>] [<text>]:
+    trigger:
+        juryEntryPoint(player, arg-1, arg-2, arg-3)
+
+##Global Asynchronous Market
+command /market [<text>] [<number>]:
+    trigger:
+        marketEntryPoint(player, arg-1, arg-2)
+
+##Real-Time Synchronous P2P Escrow
+command /tradewith [<text>] [<player>] [<number>]:
+    trigger:
+        ptradeEntryPoint(player, arg-1, arg-2, arg-3)
+
+##Economy GUI
+command /economy:
+    trigger:
+        openEconomyMenu(player, {language::%uuid of player%})
+
+##--------------------------------##
+##         Info Commands          ##
+##--------------------------------##
+
+##Check Balance
+command /balance [<offlineplayer>]:
+    aliases: /bal, /wallet
+    trigger:
+        showBalance(player, arg-1)
+
+##Show Economy Summary
+command /ecostatus:
+    trigger:
+        showEconomy(player)
+
+##Show Supply Summary
+command /supply:
+    trigger:
+        showSupply(player)
+
+##--------------------------------##
+##         Event Handlers         ##
+##--------------------------------##
+
+##Auto-Generate A Quest On Join If The Player Has None
+on join:
+    if {quest::%uuid of player%::action} is not set:
+        generateQuest(player)
+
+##Track Mining Progress
+on break:
+    if {quest::%uuid of player%::action} is "mine":
+        advanceQuest(player, "mine", "%type of event-block%")
+
+##Track Consumption Progress
+on consume:
+    if {quest::%uuid of player%::action} is "consume":
+        advanceQuest(player, "consume", "%type of event-item%")
+
+##Track Kill Progress
+on death of monster:
+    if attacker is a player:
+        if {quest::%uuid of attacker%::action} is "kill":
+            advanceQuest(attacker, "kill", "%type of victim%")
+
+##Track Crafting Progress
+on craft:
+    if {quest::%uuid of player%::action} is "craft":
+        advanceQuest(player, "craft", "%type of event-item%")
+
+##Track Fishing Progress
+on fish:
+    if {quest::%uuid of player%::action} is "fish":
+        if "%state%" is "CAUGHT_FISH":
+            advanceQuest(player, "fish", "any")
+
+##Refund Pending Trades When Seller Disconnects
+on quit:
+    refundTradesOnQuit(player)
+
+##Economy GUI Click Handlers
+on inventory click:
+    if event-inventory = (metadata tag "Economy" of player):
+        cancel event
+        handleEconomyMenuClick(player, index of event-slot)
+    else if event-inventory = (metadata tag "EconomyContracts" of player):
+        cancel event
+        handleEconomyContractsMenuClick(player, index of event-slot)
+    else if event-inventory = (metadata tag "EconomyJury" of player):
+        cancel event
+        handleEconomyJuryMenuClick(player, index of event-slot)
+    else if event-inventory = (metadata tag "EconomyMarket" of player):
+        cancel event
+        handleEconomyMarketMenuClick(player, index of event-slot)
+    else if event-inventory = (metadata tag "EconomyPTrade" of player):
+        cancel event
+        handleEconomyPTradeMenuClick(player, index of event-slot)
