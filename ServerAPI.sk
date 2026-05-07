@@ -439,11 +439,13 @@ function openTPCancelMenu(p: player, lang: text):
         set {_count} to {_count} + 1
     open (metadata tag "TPCancel" of {_p}) to {_p}
 
-##Location Anvil Menu Generator
 function openLocationAnvil(p: player, status: text, lang: text):
-    set {_gui} to a new anvil gui named "%{labels::%{_lang}%::location::anvil::title}%" with default text "%{labels::%{_lang}%::location::anvil::text}%"
     set {status::%uuid of {_p}%} to {_status}
-    open anvil gui {_gui} to {_p}
+    # skBee: open a real functional anvil to the player
+    open real anvil named "%{labels::%{_lang}%::location::anvil::title}%" to {_p}
+    # Wait 1 tick so the inventory is fully open before setting the input item
+    wait 1 tick
+    set slot 0 of {_p}'s current inventory to paper named "%{labels::%{_lang}%::location::anvil::text}%"
 
 ##Paginated Location Menu Generator
 function openPaginatedLocations(p: player, lang: text):
@@ -594,6 +596,10 @@ function handleLocationAnvilClick(p: player, input: text):
     else if {_status} is equal to "unsaveLoc":
         unsaveLocation({_p}, {_input})
     clear {status::%uuid of {_p}%}
+    # Clear anvil slots before closing so items don't drop back to the player
+    set slot 0 of {_p}'s current inventory to air
+    set slot 1 of {_p}'s current inventory to air
+    set slot 2 of {_p}'s current inventory to air
     close {_p}'s inventory
 
 ##Handle TP Ask Click

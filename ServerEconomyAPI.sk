@@ -881,13 +881,17 @@ function handleEconomyMenuClick(p: player, slotObj: integer):
     if {_slotObj} is 0:
         close {_p}'s inventory
         set {status::%uuid of {_p}%} to "transfer"
-        set {_gui} to a new anvil gui named "%{labels::%{language::%uuid of {_p}%}%::economy::transfer::name}%" with default text "player amount"
-        open anvil gui {_gui} to {_p}
+        # skBee: open a real functional anvil for transfer input
+        open real anvil named "%{labels::%{language::%uuid of {_p}%}%::economy::transfer::name}%" to {_p}
+        wait 1 tick
+        set slot 0 of {_p}'s current inventory to paper named "player amount"
     else if {_slotObj} is 4:
         close {_p}'s inventory
         set {status::%uuid of {_p}%} to "swap"
-        set {_gui} to a new anvil gui named "%{labels::%{language::%uuid of {_p}%}%::economy::swap::name}%" with default text "emerald/coin amount"
-        open anvil gui {_gui} to {_p}
+        # skBee: open a real functional anvil for swap input
+        open real anvil named "%{labels::%{language::%uuid of {_p}%}%::economy::swap::name}%" to {_p}
+        wait 1 tick
+        set slot 0 of {_p}'s current inventory to paper named "emerald/coin amount"
     else if {_slotObj} is 8:
         openEconomyContractsMenu({_p}, {language::%uuid of {_p}%})
     else if {_slotObj} is 9:
