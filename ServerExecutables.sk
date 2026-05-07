@@ -265,3 +265,18 @@ on quit:
     clear {pending::%uuid of player%}
     clear {locationPages::%uuid of player%::*}
     clear {buffer::%uuid of player%::*}
+
+on tab complete of "/location":
+    set {_arg1_choice} to "add", "remove", "setIcon"
+    
+    if argument 1 is not set:
+        set tab completion to {_arg1_choice}
+    else if argument 1 is "add":
+        set tab completion to {locationNames::*}
+    else if argument 1 is "remove":
+        set tab completion to {locationNames::*}
+    else if argument 1 is "setIcon":
+        set tab completion to {locationNames::*}
+
+on tab complete of "/goto":
+    set tab completion to {locationNames::*}
