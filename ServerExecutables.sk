@@ -214,16 +214,27 @@ on inventory click:
         cancel event
         handleLocationPagesClick(player, index of event-slot, event-item)
 
-    # skBee real anvil: no metadata tag available, identify by {status} variable
+    # skBee real anvil: only intercept if player is in an anvil inventory and has a status set
     else if {status::%uuid of player%} is set:
-        if index of event-slot is 2:
-            cancel event
-            set cursor slot of player to air
-            if event-item is set:
-                if event-item is not air:
-                    set {_input} to uncolored name of event-item
-                    if {_input} is set:
-                        handleLocationAnvilClick(player, {_input})
+        if "%type of event-inventory%" contains "anvil":
+            if index of event-slot is 2:
+                cancel event
+                set cursor slot of player to air
+                if event-item is set:
+                    if event-item is not air:
+                        set {_input} to uncolored name of event-item
+                        if {_input} is set:
+                            handleLocationAnvilClick(player, {_input})
+
+on inventory close:
+    # Clear anvil status and slots when closing an anvil (e.g. pressing ESC)
+    if {status::%uuid of player%} is set:
+        if "%type of event-inventory%" contains "anvil":
+            # Clear anvil slots so the paper doesn't drop back to the player
+            set slot 0 of event-inventory to air
+            set slot 1 of event-inventory to air
+            set slot 2 of event-inventory to air
+            clear {status::%uuid of player%}
 
 on death:
     if victim is a player:
@@ -270,7 +281,6 @@ on quit:
     clear {status::%uuid of player%}
     clear {selectedPage::%uuid of player%}
     clear {pending::%uuid of player%}
-    clear {locationPages::%uuid of player%::*}
     clear {buffer::%uuid of player%::*}
 
 on tab complete of "/location":

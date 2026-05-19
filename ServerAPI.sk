@@ -450,21 +450,21 @@ function openLocationAnvil(p: player, status: text, lang: text):
 ##Paginated Location Menu Generator
 function openPaginatedLocations(p: player, lang: text):
     set {selectedPage::%uuid of {_p}%} to 0
-    clear {locationPages::%uuid of {_p}%::*}
+    # Use local variables instead of global {locationPages} to avoid flooding the Skript database
     set {_page} to 0
     set {_count} to 0
-    add "Locations%{_page}%" to {locationPages::%uuid of {_p}%::*}
+    add "Locations%{_page}%" to {_pageNames::*}
     loop {sortedLocations::*}:
         if {_count} > 24:
             set {_count} to 0
             set {_page} to {_page} + 1
-            add "Locations%{_page}%" to {locationPages::%uuid of {_p}%::*}
-        add "%loop-value%" to {locationPages::%uuid of {_p}%::Locations%{_page}%::*}
+            add "Locations%{_page}%" to {_pageNames::*}
+        add "%loop-value%" to {_pageEntries::Locations%{_page}%::*}
         set {_count} to {_count} + 1
-    loop {locationPages::%uuid of {_p}%::*}:
+    loop {_pageNames::*}:
         set metadata tag "%loop-value%" of {_p} to chest inventory with 3 rows named "%loop-value%"
         set {_count} to 0
-        loop {locationPages::%uuid of {_p}%::%loop-value-1%::*}:
+        loop {_pageEntries::%loop-value-1%::*}:
             if {_count} is 18:
                 set {_count} to {_count} + 1
             set {_lore} to "%{lores::%{_lang}%::location::popularity}%: %{location::%loop-value-2%::freq}%"
