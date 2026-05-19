@@ -269,8 +269,12 @@ on join:
         set the player's display name to formatted "<yellow>[VIP]<%{color::%uuid of player%}%>%name of player%"
         set the player's tab list name to formatted "<yellow>[VIP]<%{color::%uuid of player%}%>%name of player%"
     else:
-        set the player's display name to formatted "<%{color::%uuid of player%}%>%name of player%"
-        set the player's tab list name to formatted "<%{color::%uuid of player%}%>%name of player%"
+        if {color::%uuid of player%} is set:
+            set the player's display name to formatted "<%{color::%uuid of player%}%>%name of player%"
+            set the player's tab list name to formatted "<%{color::%uuid of player%}%>%name of player%"
+        else:
+            set the player's display name to name of player
+            set the player's tab list name to name of player
 
     if player does not have permission "server.authorized":
         set player's gamemode to adventure
