@@ -32,9 +32,9 @@ command /caliberateHints:
         caliberateHints()
 
 ##Initialize Default Location Icons
-command /fixLocationIcons:
+command /initLocationIcons:
     trigger:
-        fixLocationIcons()
+        initLocationIcons()
 
 ##Initialize Location Popularity
 command /initPopularity:
@@ -301,5 +301,4 @@ on tab complete of "/goto":
     set tab completions for position 1 to {sortedLocations::*}
 
 on tab complete of "/color":
-    set {_color_choices::*} to "red", "green", "blue", "yellow", "aqua", "purple", "white", "black" and "gray"
-    set tab completions for position 1 to {_color_choices::*}
+    set tab completions for position 1 to {colors::*}

@@ -26,76 +26,76 @@ function caliberateHints():
     ##Default
 
     ##Command Restrictions
-    set {messages::default::restrictions::pvp} to "&4No Commands In Arena!"
+    set {messages::default::restrictions::pvp} to "&4No commands in arena!"
 
     ##Pray
-    set {messages::default::pray} to "&eYou Are Blessed!"
+    set {messages::default::pray} to "&eYou are blessed!"
     set {messages::default::praycd} to "&4Are you sure you are sincere?"
     ##Wild
-    set {messages::default::wild::executed} to "&eSending You To Wild"
-    set {messages::default::wild::delay} to "&ePlease Wait For 3 Seconds"
-    set {messages::default::wild::safe} to "&eSent You To Wild"
-    set {messages::default::wild::unsafe} to "&4Location Is Not Safe!"
-    set {messages::default::wild::cd} to "&eWild Can Only Be Executed Once Per Minute!"
-    set {messages::default::wild::error} to "&4Wild Can Only Be Executed In The Overworld"
+    set {messages::default::wild::executed} to "&eSending you to wild"
+    set {messages::default::wild::delay} to "&ePlease wait for 3 seconds"
+    set {messages::default::wild::safe} to "&eSent you to wild"
+    set {messages::default::wild::unsafe} to "&4Location is not safe!"
+    set {messages::default::wild::cd} to "&eWild can only be executed once per minute!"
+    set {messages::default::wild::error} to "&4Wild can only be executed in the overworld"
     ##SetHome
-    set {messages::default::sethome} to "&eSet Home Position to "
+    set {messages::default::sethome} to "&eSet home position to "
     ##Home
-    set {messages::default::home::executed} to "&eSent You Back Home"
-    set {messages::default::home::fail} to "&4You Don't Have A Home"
+    set {messages::default::home::executed} to "&eSent you back home"
+    set {messages::default::home::fail} to "&4You don't have a home"
     ##Back
-    set {messages::default::back::executed} to "&eSent You Back"
-    set {messages::default::back::fail} to "&4No More Buffer Location"
+    set {messages::default::back::executed} to "&eSent you back"
+    set {messages::default::back::fail} to "&4No more buffer location"
     ##TPA
-    set {messages::default::tpa::sendrequest} to "&eRequested Teleportation To "
-    set {messages::default::tpa::receiverequest} to "&e Request Teleportation to You"
-    set {messages::default::tpa::expired} to "&eRequest Expired"
-    set {messages::default::tpa::pending} to "&4Target Player Has Pending Request"
-    set {messages::default::tpa::notarget} to "&4Please Select Target"
+    set {messages::default::tpa::sendrequest} to "&eRequested teleportation to "
+    set {messages::default::tpa::receiverequest} to "&e Requested to teleport to you"
+    set {messages::default::tpa::expired} to "&eRequest expired"
+    set {messages::default::tpa::pending} to "&4Target player has pending request"
+    set {messages::default::tpa::notarget} to "&4Please select target"
     ##TPK
     set {messages::default::tpk::executed} to "&eTeleporting in 3 seconds"
-    set {messages::default::tpk::fail} to "&4No Request or Requrest Expired!"
+    set {messages::default::tpk::fail} to "&4No request or requrest expired!"
     ##TPC
-    set {messages::default::tpc::executed} to "&eCanceled Teleportation Request to "
-    set {messages::default::tpc::fail} to "&4No Request Was Sent To Target Player"
-    set {messages::default::tpc::notarget} to "&4Please Select Target"
+    set {messages::default::tpc::executed} to "&eCanceled teleportation request to "
+    set {messages::default::tpc::fail} to "&4No request was sent to target player"
+    set {messages::default::tpc::notarget} to "&4Please select target"
     ##Location Add
-    set {messages::default::location::add::executed} to "&eSet Location "
-    set {messages::default::location::add::fail} to "&4Location Already Exists"
-    set {messages::default::location::add::full} to "&4Saved List Is Full (Max 27)"
+    set {messages::default::location::add::executed} to "&eSet location "
+    set {messages::default::location::add::fail} to "&4Location already exists"
+    set {messages::default::location::add::full} to "&4Saved list is full (Max 27)"
     ##Location Remove
-    set {messages::default::location::remove::executed} to "&eLocation Removed"
-    set {messages::default::location::remove::fail} to "&4Location Doesn't Exist"
-    set {messages::default::location::unknown} to "&4Unknown Parameter"
+    set {messages::default::location::remove::executed} to "&eLocation removed"
+    set {messages::default::location::remove::fail} to "&4Location doesn't exist"
+    set {messages::default::location::unknown} to "&4Unknown parameter"
     ##Location Save
     set {messages::default::location::save::executed::1} to "&eLocation "
-    set {messages::default::location::save::executed::2} to "&e Saved"
+    set {messages::default::location::save::executed::2} to "&e saved"
     set {messages::default::location::unsave::executed::1} to "&eLocation "
-    set {messages::default::location::unsave::executed::2} to "&e Unsaved"
+    set {messages::default::location::unsave::executed::2} to "&e unsaved"
     ##Location SetIcon
-    set {messages::default::location::setIcon::executed} to "&eNew Icon Set"
-    set {messages::default::location::setIcon::isAir} to "&4Icon Cannot Be Air"
-    set {messages::default::location::setIcon::fail} to "&4Location Doesn't Exist"
+    set {messages::default::location::setIcon::executed} to "&eNew icon set"
+    set {messages::default::location::setIcon::isAir} to "&4Icon cannot be air"
+    set {messages::default::location::setIcon::fail} to "&4Location doesn't exist"
     ##Goto
-    set {messages::default::goto::executed} to "&eSent You To "
-    set {messages::default::goto::fail} to "&eNo Such Location!"
+    set {messages::default::goto::executed} to "&eSent you to "
+    set {messages::default::goto::fail} to "&eNo such location!"
     ##Grave
-    set {messages::default::grave::executed} to "&eSent You To Your Grave"
-    set {messages::default::grave::fail} to "&4You Haven't Died Since Last Visit To Grave!"
+    set {messages::default::grave::executed} to "&eSent you to your grave"
+    set {messages::default::grave::fail} to "&4You haven't died since last visit to grave!"
     ##VIP
-    set {messages::default::vip::true} to "&eTarget Player Is VIP"
-    set {messages::default::vip::false} to "&eTarget Player Is Not VIP"
+    set {messages::default::vip::true} to "&eTarget player is VIP"
+    set {messages::default::vip::false} to "&eTarget player is not VIP"
     ##Color
-    set {messages::default::color::executed} to "&eDisplay Name Color Set"
-    set {messages::default::color::fail} to "&4Please Enter A Valid Color:"
-    set {messages::default::color::nohashtag} to "&4Hex Code Must Start From #"
-    set {messages::default::color::nosixvalue} to "&4Hex Code Must Contain 6 Values"
-    set {messages::default::color::codeerror} to "&4Value Provided Isn't Hex Code"
+    set {messages::default::color::executed} to "&eDisplay name color set"
+    set {messages::default::color::fail} to "&4Please enter a valid color:"
+    set {messages::default::color::nohashtag} to "&4Hex code must start by #"
+    set {messages::default::color::nosixvalue} to "&4Hex code must contain 6 values"
+    set {messages::default::color::codeerror} to "&4Value provided isn't hex code"
     ##Auth
-    set {messages::default::auth::notauthed} to "&4You Are Not An Authorized Player"
-    set {messages::default::auth::alreadyauthed} to "&ePlayer Is Already Authorized"
-    set {messages::default::auth::executed} to "&ePlayer Is Authorized"
-    set {messages::default::auth::authed} to "&eYou Have Been Authorized"
+    set {messages::default::auth::notauthed} to "&4You are not an authorized player"
+    set {messages::default::auth::alreadyauthed} to "&ePlayer is already authorized"
+    set {messages::default::auth::executed} to "&ePlayer is authorized"
+    set {messages::default::auth::authed} to "&eYou have been authorized"
 
     ##zh_tw
 
@@ -104,7 +104,7 @@ function caliberateHints():
 
     ##Pray
     set {messages::zh_tw::pray} to "&e您受到了神的祝福!"
-    set {messages::zh_tw::praycd} to "&4您確定您夠真誠嗎?"
+    set {messages::zh_tw::praycd} to "&4您真的夠真誠嗎?"
     ##Wild
     set {messages::zh_tw::wild::executed} to "&e正在將您傳送到野外"
     set {messages::zh_tw::wild::delay} to "&e請等待3秒鐘"
@@ -116,7 +116,7 @@ function caliberateHints():
     set {messages::zh_tw::sethome} to "&e已將家設定於"
     ##Home
     set {messages::zh_tw::home::executed} to "&e已將您傳送回家"
-    set {messages::zh_tw::home::fail} to "&4您尚未設定家的位置"
+    set {messages::zh_tw::home::fail} to "&4你沒有家"
     ##Back
     set {messages::zh_tw::back::executed} to "&e已將您傳送回去暫存的地點"
     set {messages::zh_tw::back::fail} to "&4您沒有暫存的地點了"

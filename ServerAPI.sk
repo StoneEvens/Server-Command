@@ -53,7 +53,7 @@ function sortLocations():
     set {sortedLocations::*} to {_sorted::*}
 
 ##Initialize Location Icons
-function fixLocationIcons():
+function initLocationIcons():
     loop {sortedLocations::*}:
         set {_locName} to loop-value
         if {location::%{_locName}%::icon} is grass block:
