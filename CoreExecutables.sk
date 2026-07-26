@@ -17,6 +17,10 @@ on join:
     else:
         set {language::%uuid of player%} to "default"
 
+on join:
+    if {balance::%uuid of player%} is not set:
+        set {balance::%uuid of player%} to 0
+
 ##--------------------------------##
 ##     Administrative Commands    ##
 ##--------------------------------##
@@ -87,6 +91,15 @@ command /migrateperms:
 command /migrateLocations:
     trigger:
         convertLocationData()
+
+##Initialize Economy
+command /initEconomy:
+    trigger:
+        if {coinPool} is not set:
+            initializeEconomy()
+            send "&a[Economy] &fSuccessfully initialized the economy system!"
+        else:
+            send "&c[Economy] &fEconomy system is already initialized!"
 
 ##--------------------------------##
 ##        Player Commands         ##
@@ -179,6 +192,34 @@ command /authorize <offlineplayer>:
 command /grave:
     trigger:
         gotoGrave(player)
+
+##--------------------------------##
+##       Economy Commands         ##
+##--------------------------------##
+command /balance:
+    trigger:
+        checkBalance(player)
+
+command /rate:
+    trigger:
+        getExchangeRate(player)
+
+command /swap <text> [<number>]:
+    trigger:
+        if arg-1 is "emeralds":
+            set player's tool to swapEmeraldsForMoney(player, player's tool, amount of player's tool)
+        else if arg-1 is "money":
+            swapMoneyForEmeralds(player, arg-2)
+        else:
+            send "%{messages::%{language::%uuid of player%}%::swap::invalid}%"
+
+command /bank:
+    trigger:
+        openSwapMerchant(player)
+
+##--------------------------------##
+##          GUI Commands          ##
+##--------------------------------##
 
 ##GUI
 command /commands:
@@ -302,3 +343,6 @@ on tab complete of "/goto":
 
 on tab complete of "/color":
     set tab completions for position 1 to {colors::*}
+
+on tab complete of "/swap":
+    set tab completions for position 1 to "emeralds" and "money"

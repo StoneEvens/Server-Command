@@ -1,0 +1,141 @@
+##--------------------------------##
+##  Server Economy API Functions  ##
+## These Are The Main Functions That Power The Server's Economy Features
+##--------------------------------##
+
+##--------------------------------##
+##    Administrative Functions    ##
+##--------------------------------##
+
+##Initialize Economy
+function initializeEconomy():
+    set {coinPool} to 100000000
+    set {emeraldPool} to 10000000
+
+##--------------------------------##
+##    Economy Core Functions      ##
+##--------------------------------##
+
+##Calculate Real-time Exchange Rate
+function getExchangeRate(p: player):
+    set {_lang} to {language::%uuid of {_p}%}
+    set {_rate} to ({coinPool} / {emeraldPool})
+    send "%{coinPool}%/%{emeraldPool}% = %{messages::%{_lang}%::exchangeRate}% %{_rate}%" to {_p}
+
+##Check Balance
+function checkBalance(p: player):
+    set {_lang} to {language::%uuid of {_p}%}
+    set {_balance} to {balance::%uuid of {_p}%}
+    send "%{messages::%{_lang}%::balance}% %{_balance}%" to {_p}
+
+##Swap Emeralds for Money
+function swapEmeraldsForMoney(p: player, targetSlot: slot, amount: int) :: itemstack:
+    set {_lang} to {language::%uuid of {_p}%}
+    set {_rate} to ({coinPool} / {emeraldPool})
+    send "%{_rate}%" to {_p}
+
+    send "%{_targetSlot}%" to {_p}
+
+    if {_targetSlot} is emerald:
+        if {_amount} <= (amount of {_targetSlot}):
+            send "%{_amount}% %{_item}%" to {_p}
+            
+            set {_money} to ({_amount} * {_rate})
+            send "%{_money}%" to {_p}
+
+            set {balance::%uuid of {_p}%} to ({balance::%uuid of {_p}%} + {_money})
+            set {coinPool} to ({coinPool} - {_money})
+            set {emeraldPool} to ({emeraldPool} + {_amount})
+
+            set amount of {_targetSlot} to (amount of {_targetSlot} - {_amount})
+            send "%{messages::%{_lang}%::swapEmeraldsForMoney::success}% %{_money}%" to {_p}
+        else:
+            send "%{messages::%{_lang}%::swapEmeraldsForMoney::invalidAmount}%" to {_p}
+    else:
+        send "%{messages::%{_lang}%::swapEmeraldsForMoney::failed}%" to {_p}
+
+    return {_targetSlot}
+
+##Swap Money for Emeralds
+function swapMoneyForEmeralds(p: player, amount: int):
+    set {_lang} to {language::%uuid of {_p}%}
+    set {_rate} to ({coinPool} / {emeraldPool})
+
+    if {_amount} > 0:
+        set {_requiredMoney} to ({_amount} * {_rate})
+
+        if {balance::%uuid of {_p}%} >= {_requiredMoney}:
+            set {balance::%uuid of {_p}%} to ({balance::%uuid of {_p}%} - {_requiredMoney})
+            set {coinPool} to ({coinPool} + {_requiredMoney})
+            set {emeraldPool} to ({emeraldPool} - {_amount})
+
+            if {_p}'s inventory contains air:
+                give {_p} {_amount} of emeralds
+            else:
+                drop ({_amount} of emeralds) at {_p}'s location
+
+            send "%{messages::%{_lang}%::swapMoneyForEmeralds::success}% %{_amount}%" to {_p}
+        else:
+            send "%{messages::%{_lang}%::swapMoneyForEmeralds::lowBalance}%" to {_p}
+    else:
+        send "%{messages::%{_lang}%::swapMoneyForEmeralds::failed}%" to {_p}
+
+##Use Money (For Commands or Purchases)
+function useMoney(p: player, amount: int) :: boolean:
+    set {_lang} to {language::%uuid of {_p}%}
+
+    if {balance::%uuid of {_p}%} >= {_amount}:
+        set {balance::%uuid of {_p}%} to ({balance::%uuid of {_p}%} - {_amount})
+        set {coinPool} to ({coinPool} + {_amount})
+        #send "%{messages::%{_lang}%::useMoney::success}% %{_amount}%" to {_p}
+        return true
+    else:
+        send "%{messages::%{_lang}%::useMoney::lowBalance}%" to {_p}
+        return false
+
+
+##--------------------------------##
+##     Economy GUI Functions      ##
+##--------------------------------##
+
+##Swap Merchant Generator
+function openSwapMerchant(p: player):
+    set {status::%uuid of {_p}%} to "swapMerchant"
+    set {_m} to new merchant named "%{labels::%{language::%uuid of {_p}%}%::swapMerchant}%"
+
+    set {_cost1} to 1 of emerald
+    set {_result1} to paper named "%({coinPool} / {emeraldPool})%%{labels::%{language::%uuid of {_p}%}%::swapMerchant::emeraldToMoney}%"
+    set {_recipe1} to merchant recipe with result {_result1} with max uses 10000
+    set ingredients of merchant recipe {_recipe1} to {_cost1}
+
+    set {_cost2} to 10 of emerald
+    set {_result2} to paper named "%(10 * {coinPool} / {emeraldPool})%%{labels::%{language::%uuid of {_p}%}%::swapMerchant::moneyToEmerald}%"
+    set {_recipe2} to merchant recipe with result {_result2} with max uses 10000
+    set ingredients of merchant recipe {_recipe2} to {_cost2}
+
+    set {_cost3} to 64 of emerald
+    set {_result3} to paper named "%(64 * {coinPool} / {emeraldPool})%%{labels::%{language::%uuid of {_p}%}%::swapMerchant::moneyToEmerald}%"
+    set {_recipe3} to merchant recipe with result {_result3} with max uses 10000
+    set ingredients of merchant recipe {_recipe3} to {_cost3}
+
+    add {_recipe1} to merchant recipes of {_m}
+    add {_recipe2} to merchant recipes of {_m}
+    add {_recipe3} to merchant recipes of {_m}
+
+    open merchant {_m} to {_p}
+
+on player purchase:
+    set {_p} to event-player
+
+    if {status::%uuid of {_p}%} is "swapMerchant":
+        cancel event
+
+        set {_recipe} to event-merchant recipe
+        set {_cost} to amount of first element of ingredients of merchant recipe {_recipe}
+
+        set slot 0 of {_p}'s open inventory to swapEmeraldsForMoney({_p}, slot 0 of {_p}'s open inventory, {_cost})
+        set slot 2 of {_p}'s open inventory to air
+
+on inventory close:
+    if type of event-inventory is merchant inventory:
+        delete {status::%uuid of player%}

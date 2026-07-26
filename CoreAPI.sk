@@ -87,10 +87,11 @@ function addBannedPlace(name: text, world: text, x1: number, y1: number, z1: num
 
 ##Bless Player
 function bless(p: player):
-    set {_p}'s health to 20
-    set {_p}'s food level to 10
-    set {_p}'s saturation to 20
-    send {messages::%{language::%uuid of {_p}%}%::pray} to {_p}
+    if (useMoney({_p}, 100)) is true:
+        set {_p}'s health to 20
+        set {_p}'s food level to 10
+        set {_p}'s saturation to 20
+        send {messages::%{language::%uuid of {_p}%}%::pray} to {_p}
 
 ##Curse From Satan
 function curse(p: player):
@@ -99,104 +100,113 @@ function curse(p: player):
 
 ##Set Home
 function setHome(p: player):
-    set {_uuid} to uuid of {_p}
-    set {_loc} to {_p}'s location
-    set {home::%{_uuid}%} to {_loc}
-    send "%{messages::%{language::%{_uuid}%}%::sethome}%&f%{_loc}%" to {_p}
+    if (useMoney({_p}, 50)) is true:
+        set {_uuid} to uuid of {_p}
+        set {_loc} to {_p}'s location
+        set {home::%{_uuid}%} to {_loc}
+        send "%{messages::%{language::%{_uuid}%}%::sethome}%&f%{_loc}%" to {_p}
 
 ##----------The Teleportation Section----------##
 ##This section covers all functions related to teleportation (excluding locations, which have their own section)
 
+##Add Buffer location
+##Helper function for all teleportation functions
+function addBuffer(p: player) :: boolean:
+    if (useMoney({_p}, 10)) is true:
+        set {_uuid} to uuid of {_p}
+        add {_p}'s location to {buffer::%{_uuid}%::*}
+
+        if size of {buffer::%{_uuid}%::*} > 3:
+            remove {buffer::%{_uuid}%::1} from {buffer::%{_uuid}%::*}
+            loop {buffer::%{_uuid}%::*}:
+                if loop-value is set:
+                    add loop-value to {_tempList::*}
+            set {buffer::%{_uuid}%::*} to {_tempList::*}
+
+        return true
+    else:
+        return false
+
 ##To Wilderness
 ##Dependent on addBuffer()
 function toWilderness(p: player):
-    if world of {_p} is "world":
-        set {_uuid} to uuid of {_p}
-        set {_lang} to {language::%{_uuid}%}
-        send {messages::%{_lang}%::wild::executed} to {_p}
-        send {messages::%{_lang}%::wild::delay} to {_p}
+    if (useMoney({_p}, 50)) is true:
+        if world of {_p} is "world":
+            set {_uuid} to uuid of {_p}
+            set {_lang} to {language::%{_uuid}%}
+            send {messages::%{_lang}%::wild::executed} to {_p}
+            send {messages::%{_lang}%::wild::delay} to {_p}
 
-        set {_xVal} to random number between -100000 and 100000
-        set {_zVal} to random number between -100000 and 100000
-        
-        set {_baseLoc} to location at {_xVal}, 0, {_zVal} in world "world"
-        set {_topBlock} to highest block at {_baseLoc}
-        
-        if {_topBlock} is not lava or water or air:
-            set {_safeTpLoc} to location of block above {_topBlock}
+            set {_xVal} to random number between -100000 and 100000
+            set {_zVal} to random number between -100000 and 100000
+            
+            set {_baseLoc} to location at {_xVal}, 0, {_zVal} in world "world"
+            set {_topBlock} to highest block at {_baseLoc}
+            
+            if {_topBlock} is not lava or water or air:
+                set {_safeTpLoc} to location of block above {_topBlock}
 
-        if {_safeTpLoc} is set:
-            wait 3 seconds
-            addBuffer({_p})
-            teleport {_p} to {_safeTpLoc}
-            send {messages::%{_lang}%::wild::safe} to {_p}
+            if {_safeTpLoc} is set:
+                wait 3 seconds
+                if (addBuffer({_p})) is true:
+                    teleport {_p} to {_safeTpLoc}
+                    send {messages::%{_lang}%::wild::safe} to {_p}
+            else:
+                send {messages::%{_lang}%::wild::unsafe} to {_p}
+                wait 1 second
+                toWilderness({_p})
         else:
-            send {messages::%{_lang}%::wild::unsafe} to {_p}
-            wait 1 second
-            toWilderness({_p})
-    else:
-        send {messages::%{_lang}%::wild::error} to {_p}
-
-##Add Buffer location
-##Helper function for all teleportation functions
-function addBuffer(p: player):
-    set {_uuid} to uuid of {_p}
-    add {_p}'s location to {buffer::%{_uuid}%::*}
-
-    if size of {buffer::%{_uuid}%::*} > 3:
-        remove {buffer::%{_uuid}%::1} from {buffer::%{_uuid}%::*}
-        loop {buffer::%{_uuid}%::*}:
-            if loop-value is set:
-                add loop-value to {_tempList::*}
-        set {buffer::%{_uuid}%::*} to {_tempList::*}
+            send {messages::%{_lang}%::wild::error} to {_p}
 
 ##Go Home
 ##Dependent on addBuffer()
 function goHome(p: player):
-    set {_uuid} to uuid of {_p}
-    set {_lang} to {language::%{_uuid}%}
-    if {home::%{_uuid}%} is set:
-        addBuffer({_p})
-        teleport {_p} to {home::%{_uuid}%}
-        send {messages::%{_lang}%::home::executed} to {_p}
-    else:
-        send {messages::%{_lang}%::home::fail} to {_p}
+    if (useMoney({_p}, 50)) is true:
+        set {_uuid} to uuid of {_p}
+        set {_lang} to {language::%{_uuid}%}
+        if {home::%{_uuid}%} is set:
+            if (addBuffer({_p})) is true:
+                teleport {_p} to {home::%{_uuid}%}
+                send {messages::%{_lang}%::home::executed} to {_p}
+        else:
+            send {messages::%{_lang}%::home::fail} to {_p}
 
 ##Go Back
-##Dependent on addBuffer()
 function goBack(p: player):
-    set {_uuid} to uuid of {_p}
-    set {_lang} to {language::%{_uuid}%}
-    set {_lastIndex} to size of {buffer::%{_uuid}%::*}
-    if {_lastIndex} > 0:
-        teleport {_p} to {buffer::%{_uuid}%::%{_lastIndex}%}
-        remove {buffer::%{_uuid}%::%{_lastIndex}%} from {buffer::%{_uuid}%::*}
-        loop {buffer::%{_uuid}%::*}:
-            if loop-value is set:
-                add loop-value to {_tempList::*}
-        set {buffer::%{_uuid}%::*} to {_tempList::*}
-        send {messages::%{_lang}%::back::executed} to {_p}
-    else:
-        send {messages::%{_lang}%::back::fail} to {_p}
+    if (useMoney({_p}, 50)) is true:
+        set {_uuid} to uuid of {_p}
+        set {_lang} to {language::%{_uuid}%}
+        set {_lastIndex} to size of {buffer::%{_uuid}%::*}
+        if {_lastIndex} > 0:
+            teleport {_p} to {buffer::%{_uuid}%::%{_lastIndex}%}
+            remove {buffer::%{_uuid}%::%{_lastIndex}%} from {buffer::%{_uuid}%::*}
+            loop {buffer::%{_uuid}%::*}:
+                if loop-value is set:
+                    add loop-value to {_tempList::*}
+            set {buffer::%{_uuid}%::*} to {_tempList::*}
+            send {messages::%{_lang}%::back::executed} to {_p}
+        else:
+            send {messages::%{_lang}%::back::fail} to {_p}
 
 ##Ask For TP
 function askTP(p: player, target: player):
-    set {_pLang} to {language::%uuid of {_p}%}
-    if {_target} is set:
-        set {_targetUuid} to uuid of {_target}
-        set {_tLang} to {language::%{_targetUuid}%}
-        if {pending::%{_targetUuid}%} is not set:
-            set {pending::%{_targetUuid}%} to {_p}
-            send "%{messages::%{_pLang}%::tpa::sendrequest}%%{_target}%" to {_p}
-            send "&e%{_p}%%{messages::%{_tLang}%::tpa::receiverequest}%" to {_target}
-            wait 1 minute
-            if {pending::%{_targetUuid}%} is {_p}:
-                send {messages::%{_pLang}%::tpa::expired} to {_p}
-                clear {pending::%{_targetUuid}%}
+    if (useMoney({_p}, 50)) is true:
+        set {_pLang} to {language::%uuid of {_p}%}
+        if {_target} is set:
+            set {_targetUuid} to uuid of {_target}
+            set {_tLang} to {language::%{_targetUuid}%}
+            if {pending::%{_targetUuid}%} is not set:
+                set {pending::%{_targetUuid}%} to {_p}
+                send "%{messages::%{_pLang}%::tpa::sendrequest}%%{_target}%" to {_p}
+                send "&e%{_p}%%{messages::%{_tLang}%::tpa::receiverequest}%" to {_target}
+                wait 1 minute
+                if {pending::%{_targetUuid}%} is {_p}:
+                    send {messages::%{_pLang}%::tpa::expired} to {_p}
+                    clear {pending::%{_targetUuid}%}
+            else:
+                send {messages::%{_pLang}%::tpa::pending} to {_p}
         else:
-            send {messages::%{_pLang}%::tpa::pending} to {_p}
-    else:
-        send {messages::%{_pLang}%::tpa::notarget} to {_p}
+            send {messages::%{_pLang}%::tpa::notarget} to {_p}
 
 ##Accept TP
 ##Dependent on addBuffer()
@@ -207,9 +217,11 @@ function acceptTP(p: player):
         send {messages::%{language::%{_uuid}%}%::tpk::executed} to {_p}
         send {messages::%{language::%uuid of {_requester}%}%::tpk::executed} to {_requester}
         wait 3 seconds
-        addBuffer({_requester})
-        teleport {_requester} to {_p}
-        clear {pending::%{_uuid}%}
+        if (addBuffer({_requester})) is true:
+            teleport {_requester} to {_p}
+            clear {pending::%{_uuid}%}
+        else:
+            send {messages::%{language::%{_uuid}%}%::tpk::requesterLowBalance} to {_p}
     else:
         send {messages::%{language::%{_uuid}%}%::tpk::fail} to {_p}
 
@@ -316,29 +328,31 @@ function setIcon(p: player, target: text):
 ##Go To Location
 ##Dependent on addBuffer() and promoteLocation() to update popularity and location index
 function gotoLocation(p: player, target: text):
-    set {_lang} to {language::%uuid of {_p}%}
-    if {location::%{_target}%::coords} is set:
-        addBuffer({_p})
-        teleport {_p} to {location::%{_target}%::coords}
-        promoteLocation({_target})
-        send "%{messages::%{_lang}%::goto::executed}%%{_target}%" to {_p}
-    else:
-        send {messages::%{_lang}%::goto::fail} to {_p}
+    if (useMoney({_p}, 50)) is true:
+        set {_lang} to {language::%uuid of {_p}%}
+        if {location::%{_target}%::coords} is set:
+            addBuffer({_p})
+            teleport {_p} to {location::%{_target}%::coords}
+            promoteLocation({_target})
+            send "%{messages::%{_lang}%::goto::executed}%%{_target}%" to {_p}
+        else:
+            send {messages::%{_lang}%::goto::fail} to {_p}
 
 ##----------End of Location Section----------##
 
 ##Go To Grave
 ##Dependent on addBuffer()
 function gotoGrave(p: player):
-    set {_uuid} to uuid of {_p}
-    set {_lang} to {language::%{_uuid}%}
-    if {grave::%{_uuid}%} is set:
-        addBuffer({_p})
-        teleport {_p} to {grave::%{_uuid}%}
-        clear {grave::%{_uuid}%}
-        send {messages::%{_lang}%::grave::executed} to {_p}
-    else:
-        send {messages::%{_lang}%::grave::fail} to {_p}
+    if (useMoney({_p}, 100)) is true:
+        set {_uuid} to uuid of {_p}
+        set {_lang} to {language::%{_uuid}%}
+        if {grave::%{_uuid}%} is set:
+            addBuffer({_p})
+            teleport {_p} to {grave::%{_uuid}%}
+            clear {grave::%{_uuid}%}
+            send {messages::%{_lang}%::grave::executed} to {_p}
+        else:
+            send {messages::%{_lang}%::grave::fail} to {_p}
 
 ##Set Player ID Color
 function setColor(p: player, color: text):
