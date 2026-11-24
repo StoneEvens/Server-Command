@@ -96,6 +96,9 @@ function caliberateHints():
     set {messages::default::auth::alreadyauthed} to "&ePlayer is already authorized"
     set {messages::default::auth::executed} to "&ePlayer is authorized"
     set {messages::default::auth::authed} to "&eYou have been authorized"
+    ##Money
+    set {messages::default::useMoney::lowBalance} to "&4Not enough money!"
+    set {messages::default::tpk::requesterLowBalance} to "&4Requester does not have enough money"
 
     ##zh_tw
 
@@ -170,6 +173,9 @@ function caliberateHints():
     set {messages::zh_tw::auth::alreadyauthed} to "&e目標玩家已經被授權了"
     set {messages::zh_tw::auth::executed} to "&e您已授權目標玩家"
     set {messages::zh_tw::auth::authed} to "&e您被授權了"
+    ##Money
+    set {messages::zh_tw::useMoney::lowBalance} to "&4餘額不足!"
+    set {messages::zh_tw::tpk::requesterLowBalance} to "&4請求者餘額不足"
 
     ##ja_jp
 
@@ -244,6 +250,9 @@ function caliberateHints():
     set {messages::ja_jp::auth::alreadyauthed} to "&eそのプレイヤーは既に認証されています"
     set {messages::ja_jp::auth::executed} to "&eプレイヤーを認証しました"
     set {messages::ja_jp::auth::authed} to "&eあなたは認証されました"
+    ##Money
+    set {messages::ja_jp::useMoney::lowBalance} to "&4残高が不足しています!"
+    set {messages::ja_jp::tpk::requesterLowBalance} to "&4リクエスト元の残高が不足しています"
 
     ##GUI Labels
 
